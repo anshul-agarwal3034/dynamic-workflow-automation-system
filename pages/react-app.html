@@ -148,7 +148,6 @@
           const [showConfirmPassword, setShowConfirmPassword] = useState(false);
           const [showNewPassword, setShowNewPassword] = useState(false);
           const [passwordFocused, setPasswordFocused] = useState(false);
-          // OTP input boxes start completely blank
           const [otp, setOtp] = useState(['', '', '', '', '', '']);
           const [timer, setTimer] = useState(45);
 
@@ -175,11 +174,11 @@
           };
 
           const getUserDisplayEmail = () => {
-            return formData.email.trim() || 'user@example.com';
+            return formData.email.trim() || 'your email address';
           };
 
           const getForgotDisplayEmail = () => {
-            return formData.forgotEmail.trim() || 'user@example.com';
+            return formData.forgotEmail.trim() || 'your email address';
           };
 
           return (

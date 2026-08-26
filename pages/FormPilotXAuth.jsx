@@ -161,11 +161,11 @@ export default function FormPilotXAuth() {
   };
 
   const getUserDisplayEmail = () => {
-    return formData.email.trim() || 'user@example.com';
+    return formData.email.trim() || 'your email address';
   };
 
   const getForgotDisplayEmail = () => {
-    return formData.forgotEmail.trim() || 'user@example.com';
+    return formData.forgotEmail.trim() || 'your email address';
   };
 
   return (
