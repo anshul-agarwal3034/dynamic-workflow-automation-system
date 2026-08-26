@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="h-full" lang="en">
+<html class="min-h-full bg-gradient-to-b from-[#F0F4F8] to-slate-200 bg-fixed" lang="en">
 <head>
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -31,12 +31,16 @@
         }
     </script>
     <style>
+        html, body {
+            min-height: 100vh;
+            background-attachment: fixed;
+        }
         body { font-family: 'Inter', sans-serif; }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-b from-[#F0F4F8] to-slate-200 flex items-center justify-center p-3 sm:p-4 py-4 sm:py-6 overflow-y-auto box-border">
-    <!-- Auth Card Container (No Overflow Clipping - Always Centered & Fully Visible) -->
+<body class="min-h-screen bg-gradient-to-b from-[#F0F4F8] to-slate-200 bg-fixed flex items-center justify-center p-3 sm:p-4 py-4 sm:py-6 overflow-y-auto box-border">
+    <!-- Auth Card Container (Fixed Position & Fully Centered) -->
     <div class="w-full max-w-[410px] mx-auto bg-white rounded-xl border border-slate-200/90 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.06)] p-5 sm:p-6 flex flex-col box-border my-auto overflow-visible shrink-0">
         <!-- Header / Logo -->
         <div class="flex items-center justify-center mb-3 gap-2.5 pt-0.5 shrink-0">
@@ -88,7 +92,7 @@
                     </button>
                 </div>
 
-                <!-- Password Requirements Box (Sleek Compact Grid - Appears on Password focus/typing) -->
+                <!-- Password Requirements Box (Compact - Fixed background height) -->
                 <div id="password_requirements" class="hidden mt-1.5 p-2 bg-slate-50 border border-slate-200/90 rounded-lg text-[10.5px] space-y-1 transition-all">
                     <p class="font-semibold text-slate-700 text-[11px]">Password requirements:</p>
                     <div class="grid grid-cols-1 gap-1">
