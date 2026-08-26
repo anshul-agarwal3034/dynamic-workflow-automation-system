@@ -120,11 +120,11 @@
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     </style>
 </head>
-<body class="h-full bg-gradient-to-b from-[#F0F4F8] to-slate-200 flex items-center justify-center p-4">
+<body class="min-h-screen bg-gradient-to-b from-[#F0F4F8] to-slate-200 flex items-center justify-center p-4 sm:p-6 py-8 overflow-y-auto">
     <!-- Auth Card -->
-    <div class="w-full max-w-[440px] bg-white rounded-[12px] border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] p-[40px]">
+    <div class="w-full max-w-[440px] bg-white rounded-[12px] border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] p-6 sm:p-9 my-auto overflow-visible">
         <!-- Header / Logo -->
-        <div class="flex items-center justify-center mb-8 gap-3">
+        <div class="flex items-center justify-center mb-6 gap-3 pt-1 overflow-visible">
             <svg class="w-10 h-10 flex-shrink-0" width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <linearGradient id="formpilotx-gradient" x1="0%" y1="100%" x2="100%" y2="0%">
@@ -143,51 +143,75 @@
                 <path d="M32 86 L74 27" stroke="url(#formpilotx-gradient)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M48 64 L32 86" stroke="url(#formpilotx-gradient)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <span class="text-2xl font-extrabold tracking-tight uppercase" style="font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.025em;">FORMPILOT<span style="color: #06B6D4;">X</span></span>
+            <span class="text-2xl font-extrabold tracking-tight uppercase text-slate-900" style="font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.025em;">FORMPILOT<span class="text-cyan-500">X</span></span>
         </div>
 
         <!-- Title & Subtitle -->
-        <div class="text-center mb-8">
-            <h1 class="font-headline-lg text-headline-lg text-slate-900 mb-2">Create your account</h1>
+        <div class="text-center mb-6">
+            <h1 class="font-headline-lg text-headline-lg text-slate-900 mb-1.5">Create your account</h1>
             <p class="font-body-sm text-body-sm text-slate-500">Build smart forms. Automate complex workflows.</p>
         </div>
 
         <!-- Form -->
-        <form class="flex flex-col gap-4">
+        <form class="flex flex-col gap-4" onsubmit="event.preventDefault();">
             <!-- Full Name -->
             <div class="flex flex-col gap-1.5">
                 <label class="font-label-md text-label-md text-slate-700" for="name">Full Name</label>
-                <input class="w-full h-10 px-3 border border-slate-300 rounded-lg text-slate-900 font-body-sm text-body-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container transition-all" id="name" placeholder="John Doe" type="text">
+                <input class="w-full h-10 px-3 border border-slate-300 rounded-lg text-slate-900 font-body-sm text-body-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container transition-all" id="name" placeholder="John Doe" type="text" required>
             </div>
 
             <!-- Email Address -->
             <div class="flex flex-col gap-1.5">
                 <label class="font-label-md text-label-md text-slate-700" for="email">Email Address</label>
-                <input class="w-full h-10 px-3 border border-slate-300 rounded-lg text-slate-900 font-body-sm text-body-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container transition-all" id="email" placeholder="name@example.com" type="email">
+                <input class="w-full h-10 px-3 border border-slate-300 rounded-lg text-slate-900 font-body-sm text-body-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container transition-all" id="email" placeholder="name@example.com" type="email" required>
             </div>
 
             <!-- Password -->
             <div class="flex flex-col gap-1.5">
                 <label class="font-label-md text-label-md text-slate-700" for="password">Password</label>
                 <div class="relative">
-                    <input class="w-full h-10 pl-3 pr-10 border border-slate-300 rounded-lg text-slate-900 font-body-sm text-body-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container transition-all" id="password" placeholder="••••••••" type="password">
-                    <button class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none" type="button">
+                    <input class="w-full h-10 pl-3 pr-10 border border-slate-300 rounded-lg text-slate-900 font-body-sm text-body-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container transition-all" id="password" placeholder="••••••••" type="password" required>
+                    <button id="toggle_password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none" type="button" aria-label="Toggle password visibility">
                         <span class="material-symbols-outlined text-xl">visibility_off</span>
                     </button>
                 </div>
-                <span class="font-label-sm text-label-sm text-slate-400 lowercase normal-case tracking-normal font-normal">Must be at least 8 characters</span>
+
+                <!-- Password Requirements Checklist -->
+                <div class="mt-2 p-3.5 bg-slate-50 border border-slate-200/80 rounded-lg text-xs space-y-1.5">
+                    <p class="font-semibold text-slate-700 mb-1 text-[13px]">Password must contain:</p>
+                    <div id="rule-length" class="flex items-center gap-2 text-slate-500 transition-colors duration-200">
+                        <span class="material-symbols-outlined text-[16px] text-slate-400 rule-icon">cancel</span>
+                        <span>At least 8 characters</span>
+                    </div>
+                    <div id="rule-uppercase" class="flex items-center gap-2 text-slate-500 transition-colors duration-200">
+                        <span class="material-symbols-outlined text-[16px] text-slate-400 rule-icon">cancel</span>
+                        <span>At least 1 uppercase letter (A-Z)</span>
+                    </div>
+                    <div id="rule-lowercase" class="flex items-center gap-2 text-slate-500 transition-colors duration-200">
+                        <span class="material-symbols-outlined text-[16px] text-slate-400 rule-icon">cancel</span>
+                        <span>At least 1 lowercase letter (a-z)</span>
+                    </div>
+                    <div id="rule-number" class="flex items-center gap-2 text-slate-500 transition-colors duration-200">
+                        <span class="material-symbols-outlined text-[16px] text-slate-400 rule-icon">cancel</span>
+                        <span>At least 1 number (0-9)</span>
+                    </div>
+                    <div id="rule-special" class="flex items-center gap-2 text-slate-500 transition-colors duration-200">
+                        <span class="material-symbols-outlined text-[16px] text-slate-400 rule-icon">cancel</span>
+                        <span>At least 1 special character/symbol (!@#$%^&*)</span>
+                    </div>
+                </div>
             </div>
 
-            <!-- Confirm Password (Error State) -->
+            <!-- Confirm Password -->
             <div class="flex flex-col gap-1.5">
                 <label class="font-label-md text-label-md text-slate-700" for="confirm_password">Confirm Password</label>
                 <div class="relative">
-                    <input class="w-full h-10 pl-3 pr-10 border border-red-500 rounded-lg text-slate-900 font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all" id="confirm_password" type="password" value="secret1">
-                    <button class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none" type="button">
+                    <input class="w-full h-10 pl-3 pr-10 border border-slate-300 rounded-lg text-slate-900 font-body-sm text-body-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container transition-all" id="confirm_password" placeholder="••••••••" type="password" required>
+                    <button id="toggle_confirm_password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none" type="button" aria-label="Toggle confirm password visibility">
                         <span class="material-symbols-outlined text-xl">visibility_off</span>
                     </button>
                 </div>
-                <span class="font-label-sm text-label-sm text-red-600 lowercase normal-case tracking-normal font-normal">Passwords must match</span>
+                <span id="confirm_match_msg" class="hidden"></span>
             </div>
 
             <!-- Submit Button -->
@@ -197,9 +221,94 @@
         </form>
 
         <!-- Footer -->
-        <div class="mt-8 text-center font-body-sm text-body-sm text-slate-600">
+        <div class="mt-7 text-center font-body-sm text-body-sm text-slate-600">
             Already have an account? <a class="text-primary-container font-medium hover:underline" href="#">Sign In</a>
         </div>
     </div>
+
+    <!-- Live Validation & UI Logic Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const passwordInput = document.getElementById('password');
+            const confirmPasswordInput = document.getElementById('confirm_password');
+            const togglePasswordBtn = document.getElementById('toggle_password');
+            const toggleConfirmPasswordBtn = document.getElementById('toggle_confirm_password');
+            const confirmMatchMsg = document.getElementById('confirm_match_msg');
+
+            const rules = {
+                length: { elem: document.getElementById('rule-length'), test: val => val.length >= 8 },
+                uppercase: { elem: document.getElementById('rule-uppercase'), test: val => /[A-Z]/.test(val) },
+                lowercase: { elem: document.getElementById('rule-lowercase'), test: val => /[a-z]/.test(val) },
+                number: { elem: document.getElementById('rule-number'), test: val => /[0-9]/.test(val) },
+                special: { elem: document.getElementById('rule-special'), test: val => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(val) }
+            };
+
+            function updatePasswordValidation() {
+                const val = passwordInput.value;
+                Object.keys(rules).forEach(key => {
+                    const rule = rules[key];
+                    const isValid = rule.test(val);
+                    const icon = rule.elem.querySelector('.rule-icon');
+
+                    if (isValid) {
+                        rule.elem.classList.remove('text-slate-500');
+                        rule.elem.classList.add('text-emerald-600', 'font-medium');
+                        icon.textContent = 'check_circle';
+                        icon.classList.remove('text-slate-400');
+                        icon.classList.add('text-emerald-500');
+                    } else {
+                        rule.elem.classList.remove('text-emerald-600', 'font-medium');
+                        rule.elem.classList.add('text-slate-500');
+                        icon.textContent = 'cancel';
+                        icon.classList.remove('text-emerald-500');
+                        icon.classList.add('text-slate-400');
+                    }
+                });
+                updateConfirmPasswordValidation();
+            }
+
+            function updateConfirmPasswordValidation() {
+                const pass = passwordInput.value;
+                const confirmPass = confirmPasswordInput.value;
+
+                if (!confirmPass) {
+                    confirmPasswordInput.className = "w-full h-10 pl-3 pr-10 border border-slate-300 rounded-lg text-slate-900 font-body-sm text-body-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container transition-all";
+                    confirmMatchMsg.textContent = "";
+                    confirmMatchMsg.className = "hidden";
+                    return;
+                }
+
+                if (pass === confirmPass) {
+                    confirmPasswordInput.className = "w-full h-10 pl-3 pr-10 border border-emerald-500 rounded-lg text-slate-900 font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all";
+                    confirmMatchMsg.textContent = "Passwords match!";
+                    confirmMatchMsg.className = "font-label-sm text-label-sm text-emerald-600 font-medium block mt-1";
+                } else {
+                    confirmPasswordInput.className = "w-full h-10 pl-3 pr-10 border border-red-500 rounded-lg text-slate-900 font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all";
+                    confirmMatchMsg.textContent = "Passwords must match";
+                    confirmMatchMsg.className = "font-label-sm text-label-sm text-red-600 font-normal block mt-1";
+                }
+            }
+
+            passwordInput.addEventListener('input', updatePasswordValidation);
+            confirmPasswordInput.addEventListener('input', updateConfirmPasswordValidation);
+
+            // Password Visibility Toggles
+            if (togglePasswordBtn) {
+                togglePasswordBtn.addEventListener('click', function() {
+                    const isPass = passwordInput.type === 'password';
+                    passwordInput.type = isPass ? 'text' : 'password';
+                    this.querySelector('.material-symbols-outlined').textContent = isPass ? 'visibility' : 'visibility_off';
+                });
+            }
+
+            if (toggleConfirmPasswordBtn) {
+                toggleConfirmPasswordBtn.addEventListener('click', function() {
+                    const isPass = confirmPasswordInput.type === 'password';
+                    confirmPasswordInput.type = isPass ? 'text' : 'password';
+                    this.querySelector('.material-symbols-outlined').textContent = isPass ? 'visibility' : 'visibility_off';
+                });
+            }
+        });
+    </script>
 </body>
 </html>
