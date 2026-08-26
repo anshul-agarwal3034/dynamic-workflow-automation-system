@@ -164,25 +164,33 @@
 
             // Show password requirements checklist when user clicks/focuses or types into password field
             passwordInput.addEventListener('focus', function() {
-                passwordRequirements.classList.remove('hidden');
+                const val = passwordInput.value;
+                const allValid = val.length > 0 && Object.keys(rules).every(key => rules[key].test(val));
+                if (!allValid) {
+                    passwordRequirements.classList.remove('hidden');
+                }
             });
 
             passwordInput.addEventListener('blur', function() {
-                if (!passwordInput.value) {
+                const val = passwordInput.value;
+                const allValid = val.length > 0 && Object.keys(rules).every(key => rules[key].test(val));
+                if (!val || allValid) {
                     passwordRequirements.classList.add('hidden');
                 }
             });
 
             function updatePasswordValidation() {
                 const val = passwordInput.value;
-                if (val.length > 0) {
-                    passwordRequirements.classList.remove('hidden');
-                }
+                let allValid = val.length > 0;
 
                 Object.keys(rules).forEach(key => {
                     const rule = rules[key];
                     const isValid = rule.test(val);
                     const icon = rule.elem.querySelector('.rule-icon');
+
+                    if (!isValid) {
+                        allValid = false;
+                    }
 
                     if (isValid) {
                         rule.elem.classList.remove('text-slate-500');
@@ -198,6 +206,14 @@
                         icon.classList.add('text-slate-400');
                     }
                 });
+
+                // Auto-hide the conditions box once ALL 5 criteria are met
+                if (allValid) {
+                    passwordRequirements.classList.add('hidden');
+                } else if (val.length > 0 || document.activeElement === passwordInput) {
+                    passwordRequirements.classList.remove('hidden');
+                }
+
                 updateConfirmPasswordValidation();
             }
 
