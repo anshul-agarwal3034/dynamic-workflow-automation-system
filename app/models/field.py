@@ -23,12 +23,9 @@ class Field(Base):
     display_order = Column(Integer, nullable=False, default=0)
     validation_config = Column(JSONB, nullable=True)
 
-    # Relationships
     form_version = relationship("FormVersion", back_populates="fields")
     options = relationship("FieldOption", back_populates="field")
 
-    # Since conditional_rules contains two foreign keys referencing fields.id (trigger_field_id and target_field_id),
-    # SQLAlchemy requires explicit foreign_keys specifications on both relationships to resolve AmbiguousForeignKeysError.
     triggers_rules = relationship(
         "ConditionalRule",
         foreign_keys="ConditionalRule.trigger_field_id",

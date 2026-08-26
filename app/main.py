@@ -20,6 +20,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from fastapi.staticfiles import StaticFiles
+import os
+
+if os.path.exists("pages"):
+    app.mount("/pages", StaticFiles(directory="pages", html=True), name="pages")
+
+
 
 @app.get("/")
 def root():

@@ -23,7 +23,6 @@ class FormVersion(Base):
     is_active = Column(Boolean, nullable=False, default=False)
     published_at = Column(DateTime(timezone=True), nullable=True)
 
-    # Relationships
     form = relationship("Form", back_populates="versions")
     fields = relationship("Field", back_populates="form_version")
     submissions = relationship("Submission", back_populates="form_version")

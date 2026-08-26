@@ -12,10 +12,8 @@ class Form(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    # Status values ('draft', 'published', 'archived') are handled at the application level.
     status = Column(String(20), nullable=False, default="draft")
 
-    # RESTRICT prevents deleting a user if forms created by that user exist in the system.
     created_by = Column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="RESTRICT"),
@@ -27,8 +25,7 @@ class Form(Base):
         nullable=False,
         server_default=func.now()
     )
-    # NOTE: onupdate=func.now() is a SQLAlchemy ORM-level behavior, NOT a database trigger.
-    # It only updates the timestamp when SQLAlchemy issues the UPDATE through a modified ORM object in a session.
+
     updated_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -36,6 +33,5 @@ class Form(Base):
         onupdate=func.now()
     )
 
-    # Relationships
     creator = relationship("User", back_populates="forms")
     versions = relationship("FormVersion", back_populates="form")

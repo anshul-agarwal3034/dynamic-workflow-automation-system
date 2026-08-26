@@ -20,5 +20,4 @@ class FieldOption(Base):
     option_value = Column(String(255), nullable=False)
     display_order = Column(Integer, nullable=False, default=0)
 
-    # Relationships
     field = relationship("Field", back_populates="options")

@@ -21,9 +21,7 @@ class User(Base):
         nullable=False,
         server_default=func.now()
     )
-    # NOTE: onupdate=func.now() is a SQLAlchemy ORM-level behavior, NOT a database trigger.
-    # It only updates the timestamp when SQLAlchemy issues the UPDATE through a modified ORM object in a session.
-    # Raw SQL updates or bulk updates that bypass the ORM will not touch it.
+
     updated_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -31,5 +29,4 @@ class User(Base):
         onupdate=func.now()
     )
 
-    # Relationships
     forms = relationship("Form", back_populates="creator")

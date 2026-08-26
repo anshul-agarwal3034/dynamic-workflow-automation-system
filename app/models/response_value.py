@@ -16,8 +16,8 @@ class ResponseValue(Base):
         nullable=False,
         index=True
     )
-    # ON DELETE RESTRICT protects historical answers — a field cannot be deleted
-    # if response_values still reference it.
+
+
     field_id = Column(
         UUID(as_uuid=True),
         ForeignKey("fields.id", ondelete="RESTRICT"),
@@ -31,6 +31,5 @@ class ResponseValue(Base):
         server_default=func.now()
     )
 
-    # Relationships
     submission = relationship("Submission", back_populates="response_values")
     field = relationship("Field", back_populates="response_values")

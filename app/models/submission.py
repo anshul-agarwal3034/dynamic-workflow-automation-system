@@ -11,8 +11,6 @@ class Submission(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # ON DELETE RESTRICT protects historical submissions from being destroyed
-    # if someone attempts to delete a form_version.
     form_version_id = Column(
         UUID(as_uuid=True),
         ForeignKey("form_versions.id", ondelete="RESTRICT"),
@@ -26,6 +24,5 @@ class Submission(Base):
     )
     completion_time_seconds = Column(Integer, nullable=True)
 
-    # Relationships
     form_version = relationship("FormVersion", back_populates="submissions")
     response_values = relationship("ResponseValue", back_populates="submission")
