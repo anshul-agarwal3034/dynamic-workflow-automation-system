@@ -35,11 +35,11 @@
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     </style>
 </head>
-<body class="h-screen w-screen bg-gradient-to-b from-[#F0F4F8] to-slate-200 flex items-center justify-center p-3 sm:p-4 overflow-hidden box-border">
-    <!-- Auth Card Container (Equal Left/Right Centered & Compact No-Scroll Fit) -->
-    <div class="w-full max-w-[410px] mx-auto bg-white rounded-xl border border-slate-200/90 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.06)] p-5 sm:p-6 flex flex-col box-border max-h-[96vh] justify-center overflow-y-auto">
+<body class="min-h-screen bg-gradient-to-b from-[#F0F4F8] to-slate-200 flex items-center justify-center p-3 sm:p-4 py-4 sm:py-6 overflow-y-auto box-border">
+    <!-- Auth Card Container (No Overflow Clipping - Always Centered & Fully Visible) -->
+    <div class="w-full max-w-[410px] mx-auto bg-white rounded-xl border border-slate-200/90 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.06)] p-5 sm:p-6 flex flex-col box-border my-auto overflow-visible shrink-0">
         <!-- Header / Logo -->
-        <div class="flex items-center justify-center mb-3 gap-2.5 pt-0.5">
+        <div class="flex items-center justify-center mb-3 gap-2.5 pt-0.5 shrink-0">
             <svg class="w-8 h-8 flex-shrink-0" width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <linearGradient id="formpilotx-gradient" x1="0%" y1="100%" x2="100%" y2="0%">
@@ -59,7 +59,7 @@
         </div>
 
         <!-- Title & Subtitle -->
-        <div class="text-center mb-3">
+        <div class="text-center mb-3 shrink-0">
             <h1 class="text-lg font-bold text-slate-900 leading-snug">Create your account</h1>
             <p class="text-xs text-slate-500 mt-0.5">Build smart forms. Automate complex workflows.</p>
         </div>
@@ -88,28 +88,28 @@
                     </button>
                 </div>
 
-                <!-- Password Requirements Box (Appears when focused / typing in Password field) -->
-                <div id="password_requirements" class="hidden mt-1.5 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] space-y-1 transition-all">
-                    <p class="font-semibold text-slate-700 text-[11px] mb-1">Password must contain:</p>
+                <!-- Password Requirements Box (Sleek Compact Grid - Appears on Password focus/typing) -->
+                <div id="password_requirements" class="hidden mt-1.5 p-2 bg-slate-50 border border-slate-200/90 rounded-lg text-[10.5px] space-y-1 transition-all">
+                    <p class="font-semibold text-slate-700 text-[11px]">Password requirements:</p>
                     <div class="grid grid-cols-1 gap-1">
                         <div id="rule-length" class="flex items-center gap-1.5 text-slate-500 transition-colors duration-150">
-                            <span class="material-symbols-outlined text-[14px] text-slate-400 rule-icon">cancel</span>
+                            <span class="material-symbols-outlined text-[13px] text-slate-400 rule-icon">cancel</span>
                             <span>At least 8 characters</span>
                         </div>
                         <div id="rule-uppercase" class="flex items-center gap-1.5 text-slate-500 transition-colors duration-150">
-                            <span class="material-symbols-outlined text-[14px] text-slate-400 rule-icon">cancel</span>
+                            <span class="material-symbols-outlined text-[13px] text-slate-400 rule-icon">cancel</span>
                             <span>At least 1 uppercase letter (A-Z)</span>
                         </div>
                         <div id="rule-lowercase" class="flex items-center gap-1.5 text-slate-500 transition-colors duration-150">
-                            <span class="material-symbols-outlined text-[14px] text-slate-400 rule-icon">cancel</span>
+                            <span class="material-symbols-outlined text-[13px] text-slate-400 rule-icon">cancel</span>
                             <span>At least 1 lowercase letter (a-z)</span>
                         </div>
                         <div id="rule-number" class="flex items-center gap-1.5 text-slate-500 transition-colors duration-150">
-                            <span class="material-symbols-outlined text-[14px] text-slate-400 rule-icon">cancel</span>
+                            <span class="material-symbols-outlined text-[13px] text-slate-400 rule-icon">cancel</span>
                             <span>At least 1 number (0-9)</span>
                         </div>
                         <div id="rule-special" class="flex items-center gap-1.5 text-slate-500 transition-colors duration-150">
-                            <span class="material-symbols-outlined text-[14px] text-slate-400 rule-icon">cancel</span>
+                            <span class="material-symbols-outlined text-[13px] text-slate-400 rule-icon">cancel</span>
                             <span>At least 1 special character (!@#$%^&*)</span>
                         </div>
                     </div>
@@ -135,7 +135,7 @@
         </form>
 
         <!-- Footer -->
-        <div class="mt-4 text-center text-xs text-slate-600">
+        <div class="mt-4 text-center text-xs text-slate-600 shrink-0">
             Already have an account? <a class="text-primary-container font-medium hover:underline" href="#">Sign In</a>
         </div>
     </div>
