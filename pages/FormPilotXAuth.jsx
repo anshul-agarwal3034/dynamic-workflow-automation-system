@@ -24,13 +24,17 @@ const Logo = ({ size = "md" }) => (
   </div>
 );
 
-const EyeIcon = ({ visible }) => (
-  <svg className="w-4 h-4 text-slate-400 hover:text-slate-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    {visible ? (
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-    ) : (
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a9.98 9.98 0 014.122-.963c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21M3 3l18 18" />
-    )}
+// Clear, independent Eye and EyeOff icons
+const EyeIcon = () => (
+  <svg className="w-4 h-4 text-slate-500 hover:text-slate-700 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg className="w-4 h-4 text-slate-400 hover:text-slate-600 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a9.98 9.98 0 014.122-.963c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21M3 3l18 18" />
   </svg>
 );
 
@@ -129,13 +133,25 @@ export default function FormPilotXAuth() {
     confirmNewPassword: '',
   });
 
+  // Separate, completely independent visibility states
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+
   const [passwordFocused, setPasswordFocused] = useState(false);
-  // OTP input boxes start completely blank
+  const [newPasswordFocused, setNewPasswordFocused] = useState(false);
+
+  // OTP State & Validation
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otpError, setOtpError] = useState('');
   const [timer, setTimer] = useState(45);
+
+  // Profile Dropdown & Modal States
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [theme, setTheme] = useState('Light');
+  const [language, setLanguage] = useState('English');
 
   // OTP Countdown Effect
   useEffect(() => {
@@ -149,6 +165,7 @@ export default function FormPilotXAuth() {
   const handleResendOtp = () => {
     setTimer(45);
     setOtp(['', '', '', '', '', '']);
+    setOtpError('');
   };
 
   const handleInputChange = (e) => {
@@ -156,39 +173,141 @@ export default function FormPilotXAuth() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Strict OTP Verification (Must match 123456)
+  const handleVerifyOtp = (nextView) => {
+    const enteredOtp = otp.join('');
+    if (enteredOtp === '123456') {
+      setOtpError('');
+      setOtp(['', '', '', '', '', '']);
+      setCurrentView(nextView);
+    } else {
+      setOtpError('Invalid OTP code. Please enter 123456 to continue.');
+    }
+  };
+
   const getUserDisplayName = () => {
-    return formData.name.trim() || 'User';
+    return formData.name.trim() || 'Alex Morgan';
   };
 
   const getUserDisplayEmail = () => {
-    return formData.email.trim() || 'your email address';
+    return formData.email.trim() || 'alex@example.com';
   };
 
   const getForgotDisplayEmail = () => {
-    return formData.forgotEmail.trim() || 'your email address';
+    return formData.forgotEmail.trim() || 'alex@example.com';
+  };
+
+  const getInitialChar = () => {
+    return getUserDisplayName().charAt(0).toUpperCase() || 'A';
+  };
+
+  const handleLogout = () => {
+    setIsProfileMenuOpen(false);
+    setCurrentView('login');
+  };
+
+  const handleDeleteAccount = () => {
+    setIsDeleteModalOpen(false);
+    setIsProfileMenuOpen(false);
+    setFormData({
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      forgotEmail: '',
+      newPassword: '',
+      confirmNewPassword: '',
+    });
+    setCurrentView('login');
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#F0F4F8] to-slate-200 flex items-center justify-center p-4 py-8 box-border font-sans">
+    <div className="min-h-screen bg-gradient-to-b from-[#F0F4F8] to-slate-200 flex items-center justify-center p-4 py-8 box-border font-sans relative">
       {currentView === 'home' ? (
         // --- 5. Authenticated Home Page Placeholder ---
-        <div className="w-full max-w-4xl bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden flex flex-col min-h-[600px]">
+        <div className="w-full max-w-4xl bg-white rounded-xl border border-slate-200 shadow-lg overflow-visible flex flex-col min-h-[600px] relative">
           {/* Top Navbar */}
-          <header className="h-16 px-6 border-b border-slate-200 flex items-center justify-between bg-white">
+          <header className="h-16 px-6 border-b border-slate-200 flex items-center justify-between bg-white relative">
             <Logo size="md" />
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
-                <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
-                  {getUserDisplayName().substring(0, 2).toUpperCase()}
-                </div>
-                <span className="text-xs font-semibold text-slate-700">{getUserDisplayName()}</span>
-              </div>
+            
+            {/* Profile Avatar Button (Initial Only) */}
+            <div className="relative">
               <button
-                onClick={() => setCurrentView('login')}
-                className="text-xs font-semibold text-slate-600 hover:text-red-600 transition-colors"
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                aria-label="User Profile Menu"
+                className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-md hover:bg-blue-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-600/30"
               >
-                Logout
+                {getInitialChar()}
               </button>
+
+              {/* Profile Dropdown Menu */}
+              {isProfileMenuOpen && (
+                <div className="absolute right-0 top-12 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 p-4 text-slate-800 space-y-4">
+                  {/* 👤 Profile Header */}
+                  <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                    <div className="w-11 h-11 rounded-full bg-blue-600 text-white font-bold text-lg flex items-center justify-center shrink-0">
+                      {getInitialChar()}
+                    </div>
+                    <div className="overflow-hidden">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-sm text-slate-900 truncate">{getUserDisplayName()}</h4>
+                        <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded-full shrink-0">Active</span>
+                      </div>
+                      <p className="text-xs text-slate-500 truncate">{getUserDisplayEmail()}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Member since August 2026</p>
+                    </div>
+                  </div>
+
+                  {/* ⚙️ Settings */}
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">⚙️ Settings</p>
+                    
+                    <div className="flex items-center justify-between text-xs py-1">
+                      <span className="text-slate-700 font-medium">Theme</span>
+                      <button
+                        onClick={() => setTheme(theme === 'Light' ? 'Dark' : 'Light')}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-[11px] transition-colors"
+                      >
+                        {theme} ☀️
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs py-1">
+                      <span className="text-slate-700 font-medium">App Language</span>
+                      <select
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="text-[11px] bg-slate-100 border border-slate-200 rounded-md px-2 py-1 text-slate-700 font-semibold focus:outline-none"
+                      >
+                        <option value="English">English</option>
+                        <option value="Spanish">Spanish</option>
+                        <option value="French">French</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 🚪 Logout & Danger Zone */}
+                  <div className="pt-2 border-t border-slate-100 space-y-1">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2 transition-colors"
+                    >
+                      <span>🚪</span>
+                      <span>Logout</span>
+                    </button>
+
+                    <div className="mt-2 pt-2 border-t border-slate-100 bg-red-50/50 p-2 rounded-lg">
+                      <button
+                        onClick={() => setIsDeleteModalOpen(true)}
+                        className="w-full text-left px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100/60 rounded-md flex items-center gap-2 transition-colors"
+                      >
+                        <span>🗑️</span>
+                        <span>Delete Account</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </header>
 
@@ -209,11 +328,9 @@ export default function FormPilotXAuth() {
 
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <div className="w-10 h-10 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center font-bold text-lg mb-3">⚡</div>
-                <div className="h-full">
-                  <h3 className="font-bold text-slate-900 text-sm mb-1">Total Responses</h3>
-                  <p className="text-2xl font-extrabold text-slate-900 mb-1">1,420</p>
-                  <p className="text-xs text-emerald-600 font-medium">↑ +18% from last week</p>
-                </div>
+                <h3 className="font-bold text-slate-900 text-sm mb-1">Total Responses</h3>
+                <p className="text-2xl font-extrabold text-slate-900 mb-1">1,420</p>
+                <p className="text-xs text-emerald-600 font-medium">↑ +18% from last week</p>
               </div>
 
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -282,9 +399,9 @@ export default function FormPilotXAuth() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none"
                     >
-                      <EyeIcon visible={showPassword} />
+                      {showPassword ? <EyeIcon /> : <EyeOffIcon />}
                     </button>
                   </div>
                   <PasswordChecklist password={formData.password} isFocused={passwordFocused} />
@@ -309,9 +426,9 @@ export default function FormPilotXAuth() {
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none"
                     >
-                      <EyeIcon visible={showConfirmPassword} />
+                      {showConfirmPassword ? <EyeIcon /> : <EyeOffIcon />}
                     </button>
                   </div>
                   {formData.confirmPassword && formData.password !== formData.confirmPassword && (
@@ -349,6 +466,12 @@ export default function FormPilotXAuth() {
                 We sent a 6-digit code to <span className="font-semibold text-slate-700">{getUserDisplayEmail()}</span>
               </p>
 
+              {otpError && (
+                <div className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 font-medium">
+                  {otpError}
+                </div>
+              )}
+
               <OtpInputs otp={otp} setOtp={setOtp} />
 
               <div className="text-xs text-slate-500 my-4">
@@ -362,7 +485,7 @@ export default function FormPilotXAuth() {
               </div>
 
               <button
-                onClick={() => setCurrentView('home')}
+                onClick={() => handleVerifyOtp('home')}
                 className="w-full h-10 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Verify & Continue
@@ -423,9 +546,9 @@ export default function FormPilotXAuth() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none"
                     >
-                      <EyeIcon visible={showPassword} />
+                      {showPassword ? <EyeIcon /> : <EyeOffIcon />}
                     </button>
                   </div>
                 </div>
@@ -503,10 +626,16 @@ export default function FormPilotXAuth() {
                 Enter the 6-digit code sent to <span className="font-semibold text-slate-700">{getForgotDisplayEmail()}</span>
               </p>
 
+              {otpError && (
+                <div className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 font-medium">
+                  {otpError}
+                </div>
+              )}
+
               <OtpInputs otp={otp} setOtp={setOtp} />
 
               <button
-                onClick={() => setCurrentView('forgot-reset')}
+                onClick={() => handleVerifyOtp('forgot-reset')}
                 className="w-full h-10 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors mt-4"
               >
                 Verify Code
@@ -538,8 +667,8 @@ export default function FormPilotXAuth() {
                       name="newPassword"
                       value={formData.newPassword}
                       onChange={handleInputChange}
-                      onFocus={() => setPasswordFocused(true)}
-                      onBlur={() => setPasswordFocused(false)}
+                      onFocus={() => setNewPasswordFocused(true)}
+                      onBlur={() => setNewPasswordFocused(false)}
                       placeholder="••••••••"
                       required
                       className="w-full h-10 pl-3 pr-10 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
@@ -547,25 +676,41 @@ export default function FormPilotXAuth() {
                     <button
                       type="button"
                       onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none"
                     >
-                      <EyeIcon visible={showNewPassword} />
+                      {showNewPassword ? <EyeIcon /> : <EyeOffIcon />}
                     </button>
                   </div>
-                  <PasswordChecklist password={formData.newPassword} isFocused={passwordFocused} />
+                  <PasswordChecklist password={formData.newPassword} isFocused={newPasswordFocused} />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Confirm New Password</label>
-                  <input
-                    type="password"
-                    name="confirmNewPassword"
-                    value={formData.confirmNewPassword}
-                    onChange={handleInputChange}
-                    placeholder="••••••••"
-                    required
-                    className="w-full h-10 px-3 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showConfirmNewPassword ? "text" : "password"}
+                      name="confirmNewPassword"
+                      value={formData.confirmNewPassword}
+                      onChange={handleInputChange}
+                      placeholder="••••••••"
+                      required
+                      className={`w-full h-10 pl-3 pr-10 border rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 transition-all ${
+                        formData.confirmNewPassword && formData.newPassword !== formData.confirmNewPassword
+                          ? "border-red-500 focus:ring-red-500/20 focus:border-red-500"
+                          : "border-slate-300 focus:ring-blue-600/20 focus:border-blue-600"
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none"
+                    >
+                      {showConfirmNewPassword ? <EyeIcon /> : <EyeOffIcon />}
+                    </button>
+                  </div>
+                  {formData.confirmNewPassword && formData.newPassword !== formData.confirmNewPassword && (
+                    <span className="text-[11px] text-red-600 font-normal mt-1 block">Passwords must match</span>
+                  )}
                 </div>
 
                 <button
@@ -578,6 +723,39 @@ export default function FormPilotXAuth() {
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* ⚠️ Delete Account Modal Confirmation */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 text-left space-y-4">
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center font-bold text-lg">
+                ⚠️
+              </div>
+              <h3 className="font-bold text-slate-900 text-base">Delete your account?</h3>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              This action cannot be undone. Your account and associated data may be permanently deleted.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded-lg transition-colors shadow-sm"
+              >
+                Delete Account
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
