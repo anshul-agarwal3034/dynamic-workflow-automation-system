@@ -1,12 +1,13 @@
 import uuid
-from typing import List, Union
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional, Union
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user
 from app.crud.form import (
     create_form_with_version,
     get_form_by_id,
+    list_forms_by_user,
     update_form,
     archive_form
 )
@@ -36,6 +37,19 @@ def create_form(payload: FormCreate, db: Session = Depends(get_db), current_user
         user_id=current_user.id
     )
     return get_form_by_id(db, form.id)
+
+
+@router.get("/forms", response_model=List[FormResponse])
+def list_forms(
+    search: Optional[str] = Query(None, description="Case-insensitive partial match on title"),
+    status_filter: Optional[str] = Query(None, alias="status", description="Exact match on status (draft|published|archived)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Lists all forms created by the logged-in user with optional title search and status filtering.
+    """
+    return list_forms_by_user(db=db, user_id=current_user.id, search=search, status=status_filter)
 
 
 @router.get("/forms/{id}", response_model=FormResponse)

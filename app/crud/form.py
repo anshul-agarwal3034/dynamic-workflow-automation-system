@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 from app.models.form import Form
 from app.models.form_version import FormVersion
@@ -40,6 +41,29 @@ def get_form_by_id(db: Session, form_id: uuid.UUID) -> Form | None:
     return db.query(Form).filter(Form.id == form_id).options(
         joinedload(Form.versions).joinedload(FormVersion.fields).joinedload(Field.options)
     ).first()
+
+
+def list_forms_by_user(
+    db: Session,
+    user_id: uuid.UUID,
+    search: Optional[str] = None,
+    status: Optional[str] = None
+) -> List[Form]:
+    """
+    Lists forms created by the logged-in user with optional title search and status filtering.
+    Eager loads versions and fields.
+    """
+    query = db.query(Form).filter(Form.created_by == user_id).options(
+        joinedload(Form.versions).joinedload(FormVersion.fields).joinedload(Field.options)
+    )
+
+    if search:
+        query = query.filter(Form.title.ilike(f"%{search.strip()}%"))
+
+    if status:
+        query = query.filter(Form.status == status.strip())
+
+    return query.order_by(Form.created_at.desc()).all()
 
 
 def update_form(db: Session, form: Form, title: str | None = None, description: str | None = None) -> Form:

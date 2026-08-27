@@ -52,22 +52,28 @@ const HomeView = ({ setIsDeleteModalOpen: setGlobalDeleteModalOpen }) => {
   };
 
   const getUserDisplayName = () => {
-    return userData?.full_name || userData?.name || 'Alex Morgan';
+    return userData?.full_name || userData?.name || 'User';
   };
 
   const getUserDisplayEmail = () => {
-    return userData?.email || 'alex@example.com';
+    return userData?.email || 'user@example.com';
   };
 
   const getInitialChar = () => {
-    return getUserDisplayName().charAt(0).toUpperCase() || 'A';
+    return getUserDisplayName().charAt(0).toUpperCase() || 'U';
   };
 
   return (
     <div className="w-full max-w-4xl bg-white rounded-xl border border-slate-200 shadow-lg overflow-visible flex flex-col min-h-[600px] relative">
       {/* Top Navbar */}
       <header className="h-16 px-6 border-b border-slate-200 flex items-center justify-between bg-white relative">
-        <Logo size="md" />
+        <div className="flex items-center gap-6">
+          <Logo size="md" />
+          <nav className="flex items-center gap-4 text-xs font-semibold">
+            <button onClick={() => navigate('/home')} className="text-blue-600 font-bold border-b-2 border-blue-600 pb-1">Home</button>
+            <button onClick={() => navigate('/forms')} className="text-slate-600 hover:text-blue-600 transition-colors">My Forms</button>
+          </nav>
+        </div>
         
         {/* Profile Avatar Button (Initial Only) */}
         <div className="relative">
@@ -93,7 +99,6 @@ const HomeView = ({ setIsDeleteModalOpen: setGlobalDeleteModalOpen }) => {
                     <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded-full shrink-0">Active</span>
                   </div>
                   <p className="text-xs text-slate-500 truncate">{getUserDisplayEmail()}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Member since August 2026</p>
                 </div>
               </div>
 
@@ -155,17 +160,28 @@ const HomeView = ({ setIsDeleteModalOpen: setGlobalDeleteModalOpen }) => {
 
       {/* Hero Content */}
       <main className="p-8 flex-1 bg-slate-50">
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-xl p-6 text-white mb-8 shadow-sm">
-          <h1 className="text-2xl font-bold mb-1">Welcome to FormPilotX, {getUserDisplayName().split(' ')[0]}!</h1>
-          <p className="text-sm opacity-90">Your temporary workspace is active. Form builder tools will be enabled in Task 4.</p>
+        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-xl p-6 text-white mb-8 shadow-sm flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold mb-1">Welcome to FormPilotX, {getUserDisplayName().split(' ')[0]}!</h1>
+            <p className="text-sm opacity-90">Manage your forms and dynamic field builder effortlessly.</p>
+          </div>
+          <button
+            onClick={() => navigate('/forms')}
+            className="px-4 py-2 bg-white text-blue-600 font-bold text-xs rounded-lg shadow hover:bg-blue-50 transition-colors shrink-0"
+          >
+            Go to My Forms →
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div
+            onClick={() => navigate('/forms')}
+            className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-blue-400 transition-all"
+          >
             <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg mb-3">📋</div>
-            <h3 className="font-bold text-slate-900 text-sm mb-1">Active Forms</h3>
-            <p className="text-2xl font-extrabold text-slate-900 mb-1">12</p>
-            <p className="text-xs text-slate-500">3 forms pending review</p>
+            <h3 className="font-bold text-slate-900 text-sm mb-1">My Forms</h3>
+            <p className="text-xs text-slate-500 mb-2">Build & manage forms</p>
+            <span className="text-xs font-bold text-blue-600 hover:underline">View Forms →</span>
           </div>
 
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">

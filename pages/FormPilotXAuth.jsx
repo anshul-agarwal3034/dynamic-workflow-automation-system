@@ -19,9 +19,9 @@ function FormPilotXAuthApp() {
     { path: '/signin/forgot-password/reset', element: <ForgotResetView /> },
     { path: '/home', element: <HomeView setIsDeleteModalOpen={setIsDeleteModalOpen} /> },
     { path: '/forms', component: FormsListView },
-    { path: '/forms/create', component: FormCreateView },
+    { path: '/forms/create', component: CreateFormView },
     { path: '/forms/:id', component: FormDetailView },
-    { path: '/forms/:id/edit', component: FormEditView },
+    { path: '/forms/:id/edit', component: FormBuilderView },
   ];
 
   return (
