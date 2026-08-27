@@ -50,6 +50,26 @@ const CrossIcon = () => (
   </svg>
 );
 
+// Crisp vector SVG icons for Profile Menu
+const SettingsIcon = () => (
+  <svg className="w-4 h-4 text-slate-800 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
+const LogoutIcon = () => (
+  <svg className="w-4 h-4 text-slate-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg className="w-4 h-4 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+);
+
 // --- Password Requirements Checklist ---
 const PasswordChecklist = ({ password, isFocused }) => {
   const rules = [
@@ -245,7 +265,7 @@ export default function FormPilotXAuth() {
                 <div className="absolute right-0 top-12 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 p-4 text-slate-800 space-y-4">
                   {/* 👤 Profile Header */}
                   <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                    <div className="w-11 h-11 rounded-full bg-blue-600 text-white font-bold text-lg flex items-center justify-center shrink-0">
+                    <div className="w-11 h-11 rounded-full bg-blue-600 text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-sm">
                       {getInitialChar()}
                     </div>
                     <div className="overflow-hidden">
@@ -259,25 +279,28 @@ export default function FormPilotXAuth() {
                   </div>
 
                   {/* ⚙️ Settings */}
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">⚙️ Settings</p>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
+                      <SettingsIcon />
+                      <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Settings</span>
+                    </div>
                     
-                    <div className="flex items-center justify-between text-xs py-1">
+                    <div className="flex items-center justify-between text-xs py-1 px-1">
                       <span className="text-slate-700 font-medium">Theme</span>
                       <button
                         onClick={() => setTheme(theme === 'Light' ? 'Dark' : 'Light')}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-[11px] transition-colors"
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-md font-semibold text-[11px] transition-colors"
                       >
                         {theme} ☀️
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs py-1">
+                    <div className="flex items-center justify-between text-xs py-1 px-1">
                       <span className="text-slate-700 font-medium">App Language</span>
                       <select
                         value={language}
                         onChange={(e) => setLanguage(e.target.value)}
-                        className="text-[11px] bg-slate-100 border border-slate-200 rounded-md px-2 py-1 text-slate-700 font-semibold focus:outline-none"
+                        className="text-[11px] bg-slate-100 border border-slate-200 rounded-md px-2 py-1 text-slate-800 font-semibold focus:outline-none"
                       >
                         <option value="English">English</option>
                         <option value="Spanish">Spanish</option>
@@ -287,21 +310,21 @@ export default function FormPilotXAuth() {
                   </div>
 
                   {/* 🚪 Logout & Danger Zone */}
-                  <div className="pt-2 border-t border-slate-100 space-y-1">
+                  <div className="pt-2 border-t border-slate-100 space-y-1.5">
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2 transition-colors"
+                      className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100/80 rounded-lg flex items-center gap-2.5 transition-colors"
                     >
-                      <span>🚪</span>
+                      <LogoutIcon />
                       <span>Logout</span>
                     </button>
 
-                    <div className="mt-2 pt-2 border-t border-slate-100 bg-red-50/50 p-2 rounded-lg">
+                    <div className="pt-2 border-t border-slate-100">
                       <button
                         onClick={() => setIsDeleteModalOpen(true)}
-                        className="w-full text-left px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100/60 rounded-md flex items-center gap-2 transition-colors"
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2.5 transition-colors"
                       >
-                        <span>🗑️</span>
+                        <TrashIcon />
                         <span>Delete Account</span>
                       </button>
                     </div>
