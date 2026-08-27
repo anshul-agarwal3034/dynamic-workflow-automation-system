@@ -1,6 +1,4 @@
 const ForgotPasswordView = ({ formData, handleInputChange }) => {
-  const navigate = ReactRouterDOM.useNavigate();
-
   const handleSubmit = (e) => {
     e.preventDefault();
     navigate('/signin/forgot-password/verify');

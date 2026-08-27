@@ -1,6 +1,4 @@
 const SignupView = ({ formData, handleInputChange, showPassword, setShowPassword, passwordFocused, setPasswordFocused }) => {
-  const navigate = ReactRouterDOM.useNavigate();
-
   const handleSubmit = (e) => {
     e.preventDefault();
     navigate('/signup/verify');

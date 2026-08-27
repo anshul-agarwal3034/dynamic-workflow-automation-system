@@ -1,6 +1,4 @@
 const ForgotVerifyView = ({ getForgotDisplayEmail, otp, setOtp, otpError, handleVerifyOtp }) => {
-  const navigate = ReactRouterDOM.useNavigate();
-
   return (
     <div className="w-full max-w-[440px] bg-white rounded-[12px] border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] p-8 sm:p-10 my-auto overflow-visible shrink-0 text-center">
       <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 border border-blue-100">

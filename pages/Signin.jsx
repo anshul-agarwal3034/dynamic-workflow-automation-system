@@ -1,9 +1,13 @@
-const SigninView = ({ formData, handleInputChange, showPassword, setShowPassword }) => {
-  const navigate = ReactRouterDOM.useNavigate();
-
+const SigninView = ({ formData, handleInputChange, showPassword, setShowPassword, handleLoginSubmit }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
-    navigate('/home');
+    if (handleLoginSubmit) {
+      handleLoginSubmit(e);
+    } else {
+      // Fallback frontend demo auth: set token and navigate to /home
+      localStorage.setItem('auth_token', 'demo_jwt_token_formpilotx');
+      navigate('/home');
+    }
   };
 
   return (

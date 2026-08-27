@@ -1,6 +1,4 @@
 const ForgotResetView = ({ formData, handleInputChange, showNewPassword, setShowNewPassword, newPasswordFocused, setNewPasswordFocused }) => {
-  const navigate = ReactRouterDOM.useNavigate();
-
   const handleSubmit = (e) => {
     e.preventDefault();
     navigate('/signin');

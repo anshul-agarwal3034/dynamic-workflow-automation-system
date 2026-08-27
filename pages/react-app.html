@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FormPilotX - React Router Authentication</title>
-    <!-- React, ReactDOM, ReactRouterDOM, Babel -->
+    <title>FormPilotX - Authentication Application</title>
+    <!-- React & ReactDOM Standalone -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-    <script src="https://unpkg.com/react-router-dom@6/umd/react-router-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -18,7 +17,8 @@
 <body class="bg-slate-100">
     <div id="root"></div>
 
-    <!-- Modular Component Scripts -->
+    <!-- Router & Modular Component Scripts -->
+    <script type="text/babel" src="SimpleRouter.jsx"></script>
     <script type="text/babel" src="SharedComponents.jsx"></script>
     <script type="text/babel" src="Signup.jsx"></script>
     <script type="text/babel" src="SignupVerify.jsx"></script>

@@ -1,7 +1,5 @@
-// --- Main App & Router Component ---
+// --- Main App Entry Component ---
 function FormPilotXAuthApp() {
-  const { HashRouter, Routes, Route, Navigate, useNavigate } = ReactRouterDOM;
-
   const [formData, setFormData] = React.useState({
     name: '',
     email: '',
@@ -41,7 +39,7 @@ function FormPilotXAuthApp() {
   };
 
   // Strict OTP Verification (Must match 123456)
-  const handleVerifyOtp = (targetRoute, navigate) => {
+  const handleVerifyOtp = (targetRoute) => {
     const enteredOtp = otp.join('');
     if (enteredOtp === '123456') {
       setOtpError('');
@@ -68,14 +66,16 @@ function FormPilotXAuthApp() {
     return getUserDisplayName().charAt(0).toUpperCase() || 'A';
   };
 
-  const handleLogout = (navigate) => {
+  const handleLogout = () => {
     setIsProfileMenuOpen(false);
+    localStorage.removeItem('auth_token');
     navigate('/signin');
   };
 
-  const handleDeleteAccount = (navigate) => {
+  const handleDeleteAccount = () => {
     setIsDeleteModalOpen(false);
     setIsProfileMenuOpen(false);
+    localStorage.removeItem('auth_token');
     setFormData({
       name: '',
       email: '',
@@ -88,145 +88,150 @@ function FormPilotXAuthApp() {
     navigate('/signin');
   };
 
-  return (
-    <HashRouter>
-      <div className="min-h-screen bg-gradient-to-b from-[#F0F4F8] to-slate-200 flex items-center justify-center p-4 py-8 box-border font-sans relative">
-        <Routes>
-          <Route
-            path="/signup"
-            element={
-              <SignupView
-                formData={formData}
-                handleInputChange={handleInputChange}
-                showPassword={showPassword}
-                setShowPassword={setShowPassword}
-                passwordFocused={passwordFocused}
-                setPasswordFocused={setPasswordFocused}
-              />
-            }
-          />
-          <Route
-            path="/signup/verify"
-            element={
-              <SignupVerifyViewWrapper
-                getUserDisplayEmail={getUserDisplayEmail}
-                otp={otp}
-                setOtp={setOtp}
-                otpError={otpError}
-                setOtpError={setOtpError}
-                timer={timer}
-                handleResendOtp={handleResendOtp}
-                handleVerifyOtp={handleVerifyOtp}
-              />
-            }
-          />
-          <Route
-            path="/signin"
-            element={
-              <SigninView
-                formData={formData}
-                handleInputChange={handleInputChange}
-                showPassword={showPassword}
-                setShowPassword={setShowPassword}
-              />
-            }
-          />
-          <Route
-            path="/signin/forgot-password"
-            element={
-              <ForgotPasswordView
-                formData={formData}
-                handleInputChange={handleInputChange}
-              />
-            }
-          />
-          <Route
-            path="/signin/forgot-password/verify"
-            element={
-              <ForgotVerifyViewWrapper
-                getForgotDisplayEmail={getForgotDisplayEmail}
-                otp={otp}
-                setOtp={setOtp}
-                otpError={otpError}
-                handleVerifyOtp={handleVerifyOtp}
-              />
-            }
-          />
-          <Route
-            path="/signin/forgot-password/reset"
-            element={
-              <ForgotResetView
-                formData={formData}
-                handleInputChange={handleInputChange}
-                showNewPassword={showNewPassword}
-                setShowNewPassword={setShowNewPassword}
-                newPasswordFocused={newPasswordFocused}
-                setNewPasswordFocused={setNewPasswordFocused}
-              />
-            }
-          />
-          <Route
-            path="/home"
-            element={
-              <HomeViewWrapper
-                getUserDisplayName={getUserDisplayName}
-                getUserDisplayEmail={getUserDisplayEmail}
-                getInitialChar={getInitialChar}
-                isProfileMenuOpen={isProfileMenuOpen}
-                setIsProfileMenuOpen={setIsProfileMenuOpen}
-                isDeleteModalOpen={isDeleteModalOpen}
-                setIsDeleteModalOpen={setIsDeleteModalOpen}
-                theme={theme}
-                setTheme={setTheme}
-                language={language}
-                setLanguage={setLanguage}
-                handleLogout={handleLogout}
-                handleDeleteAccount={handleDeleteAccount}
-              />
-            }
-          />
-          <Route path="/forms" element={<FormsListView />} />
-          <Route path="/forms/create" element={<FormCreateView />} />
-          <Route path="/forms/:id" element={<FormDetailView />} />
-          <Route path="/forms/:id/edit" element={<FormEditView />} />
+  // Routes declaration array mapping paths to components
+  const routes = [
+    {
+      path: '/signup',
+      component: (props) => (
+        <SignupView
+          {...props}
+          formData={formData}
+          handleInputChange={handleInputChange}
+          showPassword={showPassword}
+          setShowPassword={setShowPassword}
+          passwordFocused={passwordFocused}
+          setPasswordFocused={setPasswordFocused}
+        />
+      ),
+    },
+    {
+      path: '/signup/verify',
+      component: (props) => (
+        <SignupVerifyView
+          {...props}
+          getUserDisplayEmail={getUserDisplayEmail}
+          otp={otp}
+          setOtp={setOtp}
+          otpError={otpError}
+          setOtpError={setOtpError}
+          timer={timer}
+          handleResendOtp={handleResendOtp}
+          handleVerifyOtp={handleVerifyOtp}
+        />
+      ),
+    },
+    {
+      path: '/signin',
+      component: (props) => (
+        <SigninView
+          {...props}
+          formData={formData}
+          handleInputChange={handleInputChange}
+          showPassword={showPassword}
+          setShowPassword={setShowPassword}
+        />
+      ),
+    },
+    {
+      path: '/signin/forgot-password',
+      component: (props) => (
+        <ForgotPasswordView
+          {...props}
+          formData={formData}
+          handleInputChange={handleInputChange}
+        />
+      ),
+    },
+    {
+      path: '/signin/forgot-password/verify',
+      component: (props) => (
+        <ForgotVerifyView
+          {...props}
+          getForgotDisplayEmail={getForgotDisplayEmail}
+          otp={otp}
+          setOtp={setOtp}
+          otpError={otpError}
+          handleVerifyOtp={handleVerifyOtp}
+        />
+      ),
+    },
+    {
+      path: '/signin/forgot-password/reset',
+      component: (props) => (
+        <ForgotResetView
+          {...props}
+          formData={formData}
+          handleInputChange={handleInputChange}
+          showNewPassword={showNewPassword}
+          setShowNewPassword={setShowNewPassword}
+          newPasswordFocused={newPasswordFocused}
+          setNewPasswordFocused={setNewPasswordFocused}
+        />
+      ),
+    },
+    {
+      path: '/home',
+      component: (props) => (
+        <HomeView
+          {...props}
+          getUserDisplayName={getUserDisplayName}
+          getUserDisplayEmail={getUserDisplayEmail}
+          getInitialChar={getInitialChar}
+          isProfileMenuOpen={isProfileMenuOpen}
+          setIsProfileMenuOpen={setIsProfileMenuOpen}
+          isDeleteModalOpen={isDeleteModalOpen}
+          setIsDeleteModalOpen={setIsDeleteModalOpen}
+          theme={theme}
+          setTheme={setTheme}
+          language={language}
+          setLanguage={setLanguage}
+          handleLogout={handleLogout}
+          handleDeleteAccount={handleDeleteAccount}
+        />
+      ),
+    },
+    { path: '/forms', component: FormsListView },
+    { path: '/forms/create', component: FormCreateView },
+    { path: '/forms/:id', component: FormDetailView },
+    { path: '/forms/:id/edit', component: FormEditView },
+  ];
 
-          {/* Default and catch-all redirects */}
-          <Route path="/" element={<Navigate to="/signin" replace />} />
-          <Route path="*" element={<Navigate to="/signin" replace />} />
-        </Routes>
-      </div>
-    </HashRouter>
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#F0F4F8] to-slate-200 flex items-center justify-center p-4 py-8 box-border font-sans relative">
+      <Router routes={routes} />
+
+      {/* ⚠️ Delete Account Modal Confirmation */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 text-left space-y-4">
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center font-bold text-lg">
+                ⚠️
+              </div>
+              <h3 className="font-bold text-slate-900 text-base">Delete your account?</h3>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              This action cannot be undone. Your account and associated data may be permanently deleted.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded-lg transition-colors shadow-sm"
+              >
+                Delete Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
-
-// Wrappers to inject navigate into handleVerifyOtp, handleLogout, handleDeleteAccount
-const SignupVerifyViewWrapper = (props) => {
-  const navigate = ReactRouterDOM.useNavigate();
-  return (
-    <SignupVerifyView
-      {...props}
-      handleVerifyOtp={(route) => props.handleVerifyOtp(route, navigate)}
-    />
-  );
-};
-
-const ForgotVerifyViewWrapper = (props) => {
-  const navigate = ReactRouterDOM.useNavigate();
-  return (
-    <ForgotVerifyView
-      {...props}
-      handleVerifyOtp={(route) => props.handleVerifyOtp(route, navigate)}
-    />
-  );
-};
-
-const HomeViewWrapper = (props) => {
-  const navigate = ReactRouterDOM.useNavigate();
-  return (
-    <HomeView
-      {...props}
-      handleLogout={() => props.handleLogout(navigate)}
-      handleDeleteAccount={() => props.handleDeleteAccount(navigate)}
-    />
-  );
-};

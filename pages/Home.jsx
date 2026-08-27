@@ -13,7 +13,13 @@ const HomeView = ({
   handleLogout,
   handleDeleteAccount
 }) => {
-  const navigate = ReactRouterDOM.useNavigate();
+  // Auth Token Protection Check
+  React.useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      navigate('/signin');
+    }
+  }, []);
 
   return (
     <div className="w-full max-w-4xl bg-white rounded-xl border border-slate-200 shadow-lg overflow-visible flex flex-col min-h-[600px] relative">
