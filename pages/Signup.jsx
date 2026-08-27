@@ -1,7 +1,43 @@
 const SignupView = ({ formData, handleInputChange, showPassword, setShowPassword, passwordFocused, setPasswordFocused }) => {
-  const handleSubmit = (e) => {
+  const [signupError, setSignupError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    navigate('/signup/verify');
+    setSignupError('');
+
+    if (formData.password !== formData.confirmPassword) {
+      setSignupError('Passwords do not match.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('http://127.0.0.1:8000/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setSignupError(data.detail || 'Signup failed. Please try again.');
+      } else {
+        // Real API Signup Success -> proceed to OTP verification step
+        navigate('/signup/verify');
+      }
+    } catch (err) {
+      setSignupError('Unable to connect to authentication server.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -11,6 +47,12 @@ const SignupView = ({ formData, handleInputChange, showPassword, setShowPassword
         <h1 className="text-xl font-bold text-slate-900 mt-4 mb-1">Create your account</h1>
         <p className="text-xs text-slate-500">Build smart forms. Automate complex workflows.</p>
       </div>
+
+      {signupError && (
+        <div className="mb-4 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 font-medium">
+          {signupError}
+        </div>
+      )}
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
@@ -95,9 +137,10 @@ const SignupView = ({ formData, handleInputChange, showPassword, setShowPassword
 
         <button
           type="submit"
-          className="w-full h-10 mt-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-4 focus:ring-blue-600/20"
+          disabled={loading}
+          className="w-full h-10 mt-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-4 focus:ring-blue-600/20 disabled:opacity-50"
         >
-          Sign Up
+          {loading ? 'Creating Account...' : 'Sign Up'}
         </button>
       </form>
 

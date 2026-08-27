@@ -1,7 +1,4 @@
 const HomeView = ({
-  getUserDisplayName,
-  getUserDisplayEmail,
-  getInitialChar,
   isProfileMenuOpen,
   setIsProfileMenuOpen,
   isDeleteModalOpen,
@@ -13,13 +10,53 @@ const HomeView = ({
   handleLogout,
   handleDeleteAccount
 }) => {
-  // Auth Token Protection Check
+  const [userData, setUserData] = React.useState(null);
+
+  // Auth Protection & Real User Profile Fetch
   React.useEffect(() => {
     const token = localStorage.getItem('auth_token');
     if (!token) {
       navigate('/signin');
+      return;
     }
+
+    // Fetch real authenticated user profile from GET /auth/me endpoint
+    fetch('http://127.0.0.1:8000/auth/me', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    .then(res => {
+      if (!res.ok) {
+        throw new Error('Token invalid or expired');
+      }
+      return res.json();
+    })
+    .then(data => {
+      setUserData(data);
+    })
+    .catch(() => {
+      // Fallback to stored user_info if offline/error
+      const stored = localStorage.getItem('user_info');
+      if (stored) {
+        try {
+          setUserData(JSON.parse(stored));
+        } catch (e) {}
+      }
+    });
   }, []);
+
+  const getUserDisplayName = () => {
+    return userData?.full_name || userData?.name || 'Alex Morgan';
+  };
+
+  const getUserDisplayEmail = () => {
+    return userData?.email || 'alex@example.com';
+  };
+
+  const getInitialChar = () => {
+    return getUserDisplayName().charAt(0).toUpperCase() || 'A';
+  };
 
   return (
     <div className="w-full max-w-4xl bg-white rounded-xl border border-slate-200 shadow-lg overflow-visible flex flex-col min-h-[600px] relative">

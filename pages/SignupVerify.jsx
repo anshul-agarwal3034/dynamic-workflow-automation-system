@@ -1,3 +1,4 @@
+// NOTE: The OTP verification screen is a UI placeholder (hardcoded 123456) pending a real email-verification backend service.
 const SignupVerifyView = ({ getUserDisplayEmail, otp, setOtp, otpError, timer, handleResendOtp, handleVerifyOtp }) => {
   return (
     <div className="w-full max-w-[440px] bg-white rounded-[12px] border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] p-8 sm:p-10 my-auto overflow-visible shrink-0 text-center">

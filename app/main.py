@@ -1,14 +1,17 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 
 from app.database import engine, Base, test_db_connection
 import app.models  # Ensures all SQLAlchemy models are registered on Base.metadata
+from app.api.routes.auth import router as auth_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Base.metadata.create_all() is idempotent — it only creates tables that don't already exist,
-    # so it will NOT affect or duplicate the tables that already exist in the database from when Alembic created them.
+    # Base.metadata.create_all() is idempotent — it creates tables if they don't exist
     Base.metadata.create_all(bind=engine)
     yield
 
@@ -20,12 +23,26 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-from fastapi.staticfiles import StaticFiles
-import os
+# CORS Middleware setup allowing static frontend origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["*"],
+)
 
+# Register Authentication Routes
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
+
+# Mount static pages directory
 if os.path.exists("pages"):
     app.mount("/pages", StaticFiles(directory="pages", html=True), name="pages")
-
 
 
 @app.get("/")
