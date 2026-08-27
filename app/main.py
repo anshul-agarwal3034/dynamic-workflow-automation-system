@@ -7,6 +7,7 @@ import os
 from app.database import engine, Base, test_db_connection
 import app.models  # Ensures all SQLAlchemy models are registered on Base.metadata
 from app.api.routes.auth import router as auth_router
+from app.api.routes.forms import router as forms_router
 
 
 @asynccontextmanager
@@ -37,8 +38,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register Authentication Routes
+# Register Authentication & Form Management Routes
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(forms_router, prefix="", tags=["forms"])
 
 # Mount static pages directory
 if os.path.exists("pages"):
