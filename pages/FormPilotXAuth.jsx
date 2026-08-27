@@ -181,7 +181,7 @@ export default function FormPilotXAuth() {
       setOtp(['', '', '', '', '', '']);
       setCurrentView(nextView);
     } else {
-      setOtpError('Invalid OTP code. Please enter 123456 to continue.');
+      setOtpError('Invalid OTP code.');
     }
   };
 
