@@ -1,195 +1,23 @@
 // --- Main App Entry Component ---
 function FormPilotXAuthApp() {
-  const [formData, setFormData] = React.useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    forgotEmail: '',
-    newPassword: '',
-    confirmNewPassword: '',
-  });
-
-  const [showPassword, setShowPassword] = React.useState(false);
-  const [showNewPassword, setShowNewPassword] = React.useState(false);
-
-  const [passwordFocused, setPasswordFocused] = React.useState(false);
-  const [newPasswordFocused, setNewPasswordFocused] = React.useState(false);
-
-  // OTP State & Validation
-  const [otp, setOtp] = React.useState(['', '', '', '', '', '']);
-  const [otpError, setOtpError] = React.useState('');
-  const [timer, setTimer] = React.useState(45);
-
-  // Profile Dropdown & Modal States
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
-  const [theme, setTheme] = React.useState('Light');
-  const [language, setLanguage] = React.useState('English');
-
-  const handleResendOtp = () => {
-    setTimer(45);
-    setOtp(['', '', '', '', '', '']);
-    setOtpError('');
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // Strict OTP Verification (Must match 123456)
-  const handleVerifyOtp = (targetRoute) => {
-    const enteredOtp = otp.join('');
-    if (enteredOtp === '123456') {
-      setOtpError('');
-      setOtp(['', '', '', '', '', '']);
-      navigate(targetRoute);
-    } else {
-      setOtpError('Invalid OTP code.');
-    }
-  };
-
-  const getUserDisplayName = () => {
-    return formData.name.trim() || 'Alex Morgan';
-  };
-
-  const getUserDisplayEmail = () => {
-    return formData.email.trim() || 'alex@example.com';
-  };
-
-  const getForgotDisplayEmail = () => {
-    return formData.forgotEmail.trim() || 'alex@example.com';
-  };
-
-  const getInitialChar = () => {
-    return getUserDisplayName().charAt(0).toUpperCase() || 'A';
-  };
-
-  const handleLogout = () => {
-    setIsProfileMenuOpen(false);
-    localStorage.removeItem('auth_token');
-    navigate('/signin');
-  };
 
   const handleDeleteAccount = () => {
     setIsDeleteModalOpen(false);
-    setIsProfileMenuOpen(false);
     localStorage.removeItem('auth_token');
-    setFormData({
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-      forgotEmail: '',
-      newPassword: '',
-      confirmNewPassword: '',
-    });
+    localStorage.removeItem('user_info');
     navigate('/signin');
   };
 
-  // Routes declaration array mapping paths to components
+  // Static routes mapping paths to top-level view elements
   const routes = [
-    {
-      path: '/signup',
-      component: (props) => (
-        <SignupView
-          {...props}
-          formData={formData}
-          handleInputChange={handleInputChange}
-          showPassword={showPassword}
-          setShowPassword={setShowPassword}
-          passwordFocused={passwordFocused}
-          setPasswordFocused={setPasswordFocused}
-        />
-      ),
-    },
-    {
-      path: '/signup/verify',
-      component: (props) => (
-        <SignupVerifyView
-          {...props}
-          getUserDisplayEmail={getUserDisplayEmail}
-          otp={otp}
-          setOtp={setOtp}
-          otpError={otpError}
-          setOtpError={setOtpError}
-          timer={timer}
-          handleResendOtp={handleResendOtp}
-          handleVerifyOtp={handleVerifyOtp}
-        />
-      ),
-    },
-    {
-      path: '/signin',
-      component: (props) => (
-        <SigninView
-          {...props}
-          formData={formData}
-          handleInputChange={handleInputChange}
-          showPassword={showPassword}
-          setShowPassword={setShowPassword}
-        />
-      ),
-    },
-    {
-      path: '/signin/forgot-password',
-      component: (props) => (
-        <ForgotPasswordView
-          {...props}
-          formData={formData}
-          handleInputChange={handleInputChange}
-        />
-      ),
-    },
-    {
-      path: '/signin/forgot-password/verify',
-      component: (props) => (
-        <ForgotVerifyView
-          {...props}
-          getForgotDisplayEmail={getForgotDisplayEmail}
-          otp={otp}
-          setOtp={setOtp}
-          otpError={otpError}
-          handleVerifyOtp={handleVerifyOtp}
-        />
-      ),
-    },
-    {
-      path: '/signin/forgot-password/reset',
-      component: (props) => (
-        <ForgotResetView
-          {...props}
-          formData={formData}
-          handleInputChange={handleInputChange}
-          showNewPassword={showNewPassword}
-          setShowNewPassword={setShowNewPassword}
-          newPasswordFocused={newPasswordFocused}
-          setNewPasswordFocused={setNewPasswordFocused}
-        />
-      ),
-    },
-    {
-      path: '/home',
-      component: (props) => (
-        <HomeView
-          {...props}
-          getUserDisplayName={getUserDisplayName}
-          getUserDisplayEmail={getUserDisplayEmail}
-          getInitialChar={getInitialChar}
-          isProfileMenuOpen={isProfileMenuOpen}
-          setIsProfileMenuOpen={setIsProfileMenuOpen}
-          isDeleteModalOpen={isDeleteModalOpen}
-          setIsDeleteModalOpen={setIsDeleteModalOpen}
-          theme={theme}
-          setTheme={setTheme}
-          language={language}
-          setLanguage={setLanguage}
-          handleLogout={handleLogout}
-          handleDeleteAccount={handleDeleteAccount}
-        />
-      ),
-    },
+    { path: '/signup', element: <SignupView /> },
+    { path: '/signup/verify', element: <SignupVerifyView /> },
+    { path: '/signin', element: <SigninView /> },
+    { path: '/signin/forgot-password', element: <ForgotPasswordView /> },
+    { path: '/signin/forgot-password/verify', element: <ForgotVerifyView /> },
+    { path: '/signin/forgot-password/reset', element: <ForgotResetView /> },
+    { path: '/home', element: <HomeView setIsDeleteModalOpen={setIsDeleteModalOpen} /> },
     { path: '/forms', component: FormsListView },
     { path: '/forms/create', component: FormCreateView },
     { path: '/forms/:id', component: FormDetailView },

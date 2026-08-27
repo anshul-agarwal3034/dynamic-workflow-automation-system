@@ -1,4 +1,9 @@
-const ForgotResetView = ({ formData, handleInputChange, showNewPassword, setShowNewPassword, newPasswordFocused, setNewPasswordFocused }) => {
+const ForgotResetView = () => {
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = React.useState('');
+  const [showNewPassword, setShowNewPassword] = React.useState(false);
+  const [newPasswordFocused, setNewPasswordFocused] = React.useState(false);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     navigate('/signin');
@@ -19,11 +24,10 @@ const ForgotResetView = ({ formData, handleInputChange, showNewPassword, setShow
             <input
               type={showNewPassword ? "text" : "password"}
               name="newPassword"
-              value={formData.newPassword}
-              onChange={handleInputChange}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               onFocus={() => setNewPasswordFocused(true)}
               onBlur={() => setNewPasswordFocused(false)}
-              placeholder="••••••••"
               required
               className="w-full h-10 pl-3 pr-10 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
             />
@@ -35,7 +39,7 @@ const ForgotResetView = ({ formData, handleInputChange, showNewPassword, setShow
               {showNewPassword ? <EyeIcon /> : <EyeOffIcon />}
             </button>
           </div>
-          <PasswordChecklist password={formData.newPassword} isFocused={newPasswordFocused} />
+          <PasswordChecklist password={newPassword} isFocused={newPasswordFocused} />
         </div>
 
         <div>
@@ -44,12 +48,11 @@ const ForgotResetView = ({ formData, handleInputChange, showNewPassword, setShow
             <input
               type={showNewPassword ? "text" : "password"}
               name="confirmNewPassword"
-              value={formData.confirmNewPassword}
-              onChange={handleInputChange}
-              placeholder="••••••••"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
               required
               className={`w-full h-10 pl-3 pr-10 border rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 transition-all ${
-                formData.confirmNewPassword && formData.newPassword !== formData.confirmNewPassword
+                confirmNewPassword && newPassword !== confirmNewPassword
                   ? "border-red-500 focus:ring-red-500/20 focus:border-red-500"
                   : "border-slate-300 focus:ring-blue-600/20 focus:border-blue-600"
               }`}
@@ -62,7 +65,7 @@ const ForgotResetView = ({ formData, handleInputChange, showNewPassword, setShow
               {showNewPassword ? <EyeIcon /> : <EyeOffIcon />}
             </button>
           </div>
-          {formData.confirmNewPassword && formData.newPassword !== formData.confirmNewPassword && (
+          {confirmNewPassword && newPassword !== confirmNewPassword && (
             <span className="text-[11px] text-red-600 font-normal mt-1 block">Passwords must match</span>
           )}
         </div>

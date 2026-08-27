@@ -1,16 +1,8 @@
-const HomeView = ({
-  isProfileMenuOpen,
-  setIsProfileMenuOpen,
-  isDeleteModalOpen,
-  setIsDeleteModalOpen,
-  theme,
-  setTheme,
-  language,
-  setLanguage,
-  handleLogout,
-  handleDeleteAccount
-}) => {
+const HomeView = ({ setIsDeleteModalOpen: setGlobalDeleteModalOpen }) => {
   const [userData, setUserData] = React.useState(null);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
+  const [theme, setTheme] = React.useState('Light');
+  const [language, setLanguage] = React.useState('English');
 
   // Auth Protection & Real User Profile Fetch
   React.useEffect(() => {
@@ -36,7 +28,6 @@ const HomeView = ({
       setUserData(data);
     })
     .catch(() => {
-      // Fallback to stored user_info if offline/error
       const stored = localStorage.getItem('user_info');
       if (stored) {
         try {
@@ -45,6 +36,20 @@ const HomeView = ({
       }
     });
   }, []);
+
+  const handleLogout = () => {
+    setIsProfileMenuOpen(false);
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_info');
+    navigate('/signin');
+  };
+
+  const handleOpenDeleteModal = () => {
+    setIsProfileMenuOpen(false);
+    if (setGlobalDeleteModalOpen) {
+      setGlobalDeleteModalOpen(true);
+    }
+  };
 
   const getUserDisplayName = () => {
     return userData?.full_name || userData?.name || 'Alex Morgan';
@@ -135,7 +140,7 @@ const HomeView = ({
 
                 <div className="pt-2 border-t border-slate-100">
                   <button
-                    onClick={() => setIsDeleteModalOpen(true)}
+                    onClick={handleOpenDeleteModal}
                     className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2.5 transition-colors"
                   >
                     <TrashIcon />

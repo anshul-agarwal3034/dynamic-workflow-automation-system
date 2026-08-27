@@ -1,6 +1,19 @@
-const SignupView = ({ formData, handleInputChange, showPassword, setShowPassword, passwordFocused, setPasswordFocused }) => {
+const SignupView = () => {
+  const [formData, setFormData] = React.useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [passwordFocused, setPasswordFocused] = React.useState(false);
   const [signupError, setSignupError] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,7 +43,8 @@ const SignupView = ({ formData, handleInputChange, showPassword, setShowPassword
       if (!response.ok) {
         setSignupError(data.detail || 'Signup failed. Please try again.');
       } else {
-        // Real API Signup Success -> proceed to OTP verification step
+        // Save registered user info for OTP step display
+        localStorage.setItem('pending_user_email', formData.email);
         navigate('/signup/verify');
       }
     } catch (err) {
@@ -62,7 +76,6 @@ const SignupView = ({ formData, handleInputChange, showPassword, setShowPassword
             name="name"
             value={formData.name}
             onChange={handleInputChange}
-            placeholder="John Doe"
             required
             className="w-full h-10 px-3 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
           />
@@ -75,7 +88,6 @@ const SignupView = ({ formData, handleInputChange, showPassword, setShowPassword
             name="email"
             value={formData.email}
             onChange={handleInputChange}
-            placeholder="name@example.com"
             required
             className="w-full h-10 px-3 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
           />
@@ -91,7 +103,6 @@ const SignupView = ({ formData, handleInputChange, showPassword, setShowPassword
               onChange={handleInputChange}
               onFocus={() => setPasswordFocused(true)}
               onBlur={() => setPasswordFocused(false)}
-              placeholder="••••••••"
               required
               className="w-full h-10 pl-3 pr-10 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
             />
@@ -114,7 +125,6 @@ const SignupView = ({ formData, handleInputChange, showPassword, setShowPassword
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleInputChange}
-              placeholder="••••••••"
               required
               className={`w-full h-10 pl-3 pr-10 border rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 transition-all ${
                 formData.confirmPassword && formData.password !== formData.confirmPassword

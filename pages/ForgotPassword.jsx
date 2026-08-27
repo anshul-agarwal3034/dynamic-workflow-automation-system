@@ -1,6 +1,9 @@
-const ForgotPasswordView = ({ formData, handleInputChange }) => {
+const ForgotPasswordView = () => {
+  const [forgotEmail, setForgotEmail] = React.useState('');
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    localStorage.setItem('pending_forgot_email', forgotEmail);
     navigate('/signin/forgot-password/verify');
   };
 
@@ -22,9 +25,8 @@ const ForgotPasswordView = ({ formData, handleInputChange }) => {
           <input
             type="email"
             name="forgotEmail"
-            value={formData.forgotEmail}
-            onChange={handleInputChange}
-            placeholder="name@example.com"
+            value={forgotEmail}
+            onChange={(e) => setForgotEmail(e.target.value)}
             required
             className="w-full h-10 px-3 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
           />

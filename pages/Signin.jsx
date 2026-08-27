@@ -1,6 +1,16 @@
-const SigninView = ({ formData, handleInputChange, showPassword, setShowPassword }) => {
+const SigninView = () => {
+  const [formData, setFormData] = React.useState({
+    email: '',
+    password: '',
+  });
+  const [showPassword, setShowPassword] = React.useState(false);
   const [signinError, setSigninError] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,10 +34,8 @@ const SigninView = ({ formData, handleInputChange, showPassword, setShowPassword
       if (!response.ok) {
         setSigninError(data.detail || 'Sign in failed. Please check your credentials.');
       } else {
-        // Save real JWT token and user details to localStorage
         localStorage.setItem('auth_token', data.access_token);
         localStorage.setItem('user_info', JSON.stringify({
-          name: formData.name || formData.email.split('@')[0],
           email: formData.email
         }));
         navigate('/home');
@@ -61,7 +69,6 @@ const SigninView = ({ formData, handleInputChange, showPassword, setShowPassword
             name="email"
             value={formData.email}
             onChange={handleInputChange}
-            placeholder="name@example.com"
             required
             className="w-full h-10 px-3 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
           />
@@ -84,7 +91,6 @@ const SigninView = ({ formData, handleInputChange, showPassword, setShowPassword
               name="password"
               value={formData.password}
               onChange={handleInputChange}
-              placeholder="••••••••"
               required
               className="w-full h-10 pl-3 pr-10 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
             />
