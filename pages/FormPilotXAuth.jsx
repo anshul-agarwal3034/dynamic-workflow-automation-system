@@ -24,17 +24,19 @@ const Logo = ({ size = "md" }) => (
   </div>
 );
 
-// Clear, independent Eye and EyeOff icons
+// Eye icon (Password Visible)
 const EyeIcon = () => (
-  <svg className="w-4 h-4 text-slate-500 hover:text-slate-700 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-4 h-4 text-slate-600 hover:text-slate-800 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
   </svg>
 );
 
+// Eye icon with diagonal slash \ (Password Hidden)
 const EyeOffIcon = () => (
   <svg className="w-4 h-4 text-slate-400 hover:text-slate-600 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a9.98 9.98 0 014.122-.963c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21M3 3l18 18" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a9.98 9.98 0 014.122-.963c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3l18 18" />
   </svg>
 );
 
@@ -153,11 +155,9 @@ export default function FormPilotXAuth() {
     confirmNewPassword: '',
   });
 
-  // Separate, completely independent visibility states
+  // Synced password visibility states across multi-field forms
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [newPasswordFocused, setNewPasswordFocused] = useState(false);
@@ -434,7 +434,7 @@ export default function FormPilotXAuth() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Confirm Password</label>
                   <div className="relative">
                     <input
-                      type={showConfirmPassword ? "text" : "password"}
+                      type={showPassword ? "text" : "password"}
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
@@ -448,10 +448,10 @@ export default function FormPilotXAuth() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none"
                     >
-                      {showConfirmPassword ? <EyeIcon /> : <EyeOffIcon />}
+                      {showPassword ? <EyeIcon /> : <EyeOffIcon />}
                     </button>
                   </div>
                   {formData.confirmPassword && formData.password !== formData.confirmPassword && (
@@ -711,7 +711,7 @@ export default function FormPilotXAuth() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Confirm New Password</label>
                   <div className="relative">
                     <input
-                      type={showConfirmNewPassword ? "text" : "password"}
+                      type={showNewPassword ? "text" : "password"}
                       name="confirmNewPassword"
                       value={formData.confirmNewPassword}
                       onChange={handleInputChange}
@@ -725,10 +725,10 @@ export default function FormPilotXAuth() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                      onClick={() => setShowNewPassword(!showNewPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none"
                     >
-                      {showConfirmNewPassword ? <EyeIcon /> : <EyeOffIcon />}
+                      {showNewPassword ? <EyeIcon /> : <EyeOffIcon />}
                     </button>
                   </div>
                   {formData.confirmNewPassword && formData.newPassword !== formData.confirmNewPassword && (
