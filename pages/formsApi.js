@@ -61,6 +61,14 @@ const formsApi = {
     return handleResponse(res);
   },
 
+  async publishForm(id) {
+    const res = await fetch(`${API_BASE}/forms/${id}/publish`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(res);
+  },
+
   async archiveForm(id) {
     const res = await fetch(`${API_BASE}/forms/${id}/archive`, {
       method: 'PATCH',
@@ -69,9 +77,35 @@ const formsApi = {
     return handleResponse(res);
   },
 
+  async unarchiveForm(id) {
+    const res = await fetch(`${API_BASE}/forms/${id}/unarchive`, {
+      method: 'PATCH',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async deleteForm(id) {
+    const res = await fetch(`${API_BASE}/forms/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(res);
+  },
+
+
   async addField(formId, fieldData) {
     const res = await fetch(`${API_BASE}/forms/${formId}/fields`, {
       method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(fieldData)
+    });
+    return handleResponse(res);
+  },
+
+  async updateField(fieldId, fieldData) {
+    const res = await fetch(`${API_BASE}/fields/${fieldId}`, {
+      method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(fieldData)
     });
@@ -92,6 +126,33 @@ const formsApi = {
       headers: getAuthHeaders(),
       body: JSON.stringify({ items })
     });
+    return handleResponse(res);
+  },
+
+  async getFormVersions(id) {
+    const res = await fetch(`${API_BASE}/forms/${id}/versions`, {
+      headers: getAuthHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async getFormVersionDetail(formId, versionId) {
+    const res = await fetch(`${API_BASE}/forms/${formId}/versions/${versionId}`, {
+      headers: getAuthHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async generateShareLink(id) {
+    const res = await fetch(`${API_BASE}/forms/${id}/generate-link`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async getPublicForm(slug) {
+    const res = await fetch(`${API_BASE}/public/forms/${slug}`);
     return handleResponse(res);
   }
 };

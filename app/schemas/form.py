@@ -28,11 +28,24 @@ class FormVersionResponse(BaseModel):
         from_attributes = True
 
 
+class FormVersionSummaryResponse(BaseModel):
+    id: uuid.UUID
+    form_id: uuid.UUID
+    version_number: int
+    is_active: bool
+    published_at: Optional[datetime] = None
+    field_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
 class FormResponse(BaseModel):
     id: uuid.UUID
     title: str
     description: Optional[str] = None
     status: str
+    share_slug: Optional[str] = None
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
@@ -40,3 +53,22 @@ class FormResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ShareLinkResponse(BaseModel):
+    share_slug: str
+    share_url: str
+
+
+class PublicFormResponse(BaseModel):
+    id: uuid.UUID
+    title: str
+    description: Optional[str] = None
+    status: str
+    version_number: int
+    published_at: Optional[datetime] = None
+    fields: List[FieldResponse] = []
+
+    class Config:
+        from_attributes = True
+

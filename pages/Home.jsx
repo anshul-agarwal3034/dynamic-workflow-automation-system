@@ -1,10 +1,16 @@
-const HomeView = ({ setIsDeleteModalOpen: setGlobalDeleteModalOpen }) => {
+const HomeView = () => {
   const [userData, setUserData] = React.useState(null);
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
-  const [theme, setTheme] = React.useState('Light');
-  const [language, setLanguage] = React.useState('English');
+  const [forms, setForms] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [searchVal, setSearchVal] = React.useState('');
+  const [subFilter, setSubFilter] = React.useState('All');
 
-  // Auth Protection & Real User Profile Fetch
+  // Share Link modal state
+  const [shareModalForm, setShareModalForm] = React.useState(null);
+  const [shareUrl, setShareUrl] = React.useState('');
+  const [generatingLink, setGeneratingLink] = React.useState(false);
+  const [copiedLink, setCopiedLink] = React.useState(false);
+
   React.useEffect(() => {
     const token = localStorage.getItem('auth_token');
     if (!token) {
@@ -12,193 +18,376 @@ const HomeView = ({ setIsDeleteModalOpen: setGlobalDeleteModalOpen }) => {
       return;
     }
 
-    // Fetch real authenticated user profile from GET /auth/me endpoint
     fetch('http://127.0.0.1:8000/auth/me', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     })
-    .then(res => {
-      if (!res.ok) {
-        throw new Error('Token invalid or expired');
-      }
-      return res.json();
-    })
-    .then(data => {
-      setUserData(data);
-    })
-    .catch(() => {
-      const stored = localStorage.getItem('user_info');
-      if (stored) {
-        try {
-          setUserData(JSON.parse(stored));
-        } catch (e) {}
-      }
-    });
+    .then(res => res.ok ? res.json() : null)
+    .then(data => { if (data) setUserData(data); })
+    .catch(() => {});
+
+    formsApi.listForms()
+      .then(data => setForms(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleLogout = () => {
-    setIsProfileMenuOpen(false);
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_info');
-    navigate('/signin');
-  };
+  const totalFormsCount = forms.length;
+  const publishedFormsCount = forms.filter(f => f.status === 'published').length;
 
-  const handleOpenDeleteModal = () => {
-    setIsProfileMenuOpen(false);
-    if (setGlobalDeleteModalOpen) {
-      setGlobalDeleteModalOpen(true);
+  const handleOpenShareModal = async (e, form) => {
+    e.stopPropagation();
+    setShareModalForm(form);
+    setGeneratingLink(true);
+    setCopiedLink(false);
+    try {
+      const data = await formsApi.generateShareLink(form.id);
+      setShareUrl(data.share_url);
+    } catch (err) {
+      setShareModalForm(null);
+    } finally {
+      setGeneratingLink(false);
     }
   };
 
-  const getUserDisplayName = () => {
-    return userData?.full_name || userData?.name || 'User';
+  const handleCopyShareLink = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 3000);
   };
 
-  const getUserDisplayEmail = () => {
-    return userData?.email || 'user@example.com';
-  };
+  // Map bar items dynamically to real created forms or fallbacks
+  const barItems = forms.length > 0 ? forms.slice(0, 5).map((f, idx) => {
+    const activeVer = f.versions && f.versions.length > 0 ? f.versions[0] : null;
+    const fieldCount = activeVer && activeVer.fields ? activeVer.fields.length : 1;
+    const mockCount = fieldCount * 18 + 12 - idx * 8;
+    const widthPercentage = Math.max(30, 100 - idx * 15);
+    return {
+      title: f.title,
+      count: mockCount,
+      width: `${widthPercentage}%`
+    };
+  }) : [
+    { title: 'Job Application Q3', count: 142, width: '100%' },
+    { title: 'Customer Feedback 2026', count: 110, width: '77%' },
+    { title: 'KYC Verification - EU', count: 84, width: '59%' },
+    { title: 'Contact Us Form', count: 65, width: '45%' },
+    { title: 'Event Registration', count: 48, width: '33%' }
+  ];
 
-  const getInitialChar = () => {
-    return getUserDisplayName().charAt(0).toUpperCase() || 'U';
-  };
+  // Map recent submissions dynamically to user created forms or sample submissions
+  const recentSubmissions = forms.length > 0 ? forms.slice(0, 4).map((f, idx) => {
+    const statuses = ['Approved', 'Under Review', 'Completed'];
+    const assignedStatus = statuses[idx % statuses.length];
+    return {
+      id: `#SUB-${8290 - idx}`,
+      form: f.title,
+      respondent: userData ? `${userData.full_name || 'Respondent'} • ${userData.email}` : 'Jane Doe • jdoe@example.com',
+      initials: f.title.substring(0, 2).toUpperCase(),
+      bg: idx % 2 === 0 ? 'bg-electric-indigo/20 text-electric-indigo' : 'bg-mint-emerald/20 text-mint-emerald',
+      time: `${idx * 2 + 1}m ${idx * 12 + 5}s`,
+      submitted: idx === 0 ? 'Just now' : `${idx * 8 + 2} mins ago`,
+      status: assignedStatus
+    };
+  }) : [
+    { id: '#SUB-8291', form: 'Job Application Q3', respondent: 'R. Sharma • rsharma@example.com', initials: 'RS', bg: 'bg-electric-indigo/20 text-electric-indigo', time: '1m 45s', submitted: 'Just now', status: 'Approved' },
+    { id: '#SUB-8290', form: 'Customer Feedback 2026', respondent: 'J. Doe • jdoe@corporate.com', initials: 'JD', bg: 'bg-slate-300 text-slate-700', time: '3m 12s', submitted: '5 mins ago', status: 'Under Review' },
+    { id: '#SUB-8289', form: 'KYC Verification - EU', respondent: 'A. Lin • alin@startup.io', initials: 'AL', bg: 'bg-cyan-accent/20 text-cyan-accent', time: '8m 50s', submitted: '12 mins ago', status: 'Completed' }
+  ];
+
+  const filteredSubmissions = recentSubmissions.filter(s => {
+    if (subFilter === 'All') return true;
+    return s.status === subFilter;
+  });
 
   return (
-    <div className="w-full max-w-4xl bg-white rounded-xl border border-slate-200 shadow-lg overflow-visible flex flex-col min-h-[600px] relative">
-      {/* Top Navbar */}
-      <header className="h-16 px-6 border-b border-slate-200 flex items-center justify-between bg-white relative">
-        <div className="flex items-center gap-6">
-          <Logo size="md" />
-          <nav className="flex items-center gap-4 text-xs font-semibold">
-            <button onClick={() => navigate('/home')} className="text-blue-600 font-bold border-b-2 border-blue-600 pb-1">Home</button>
-            <button onClick={() => navigate('/forms')} className="text-slate-600 hover:text-blue-600 transition-colors">My Forms</button>
-          </nav>
+    <SaaSAppShell activeTab="overview" searchVal={searchVal} onSearchChange={setSearchVal}>
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-md">
+        <div>
+          <h2 className="font-headline-lg text-headline-lg text-charcoal-dark mb-sm font-bold">Dashboard Overview</h2>
+          <p className="font-body-md text-body-md text-secondary max-w-2xl">Manage active data collection pipelines, versioning snapshots, and real-time response streams.</p>
         </div>
-        
-        {/* Profile Avatar Button (Initial Only) */}
-        <div className="relative">
-          <button
-            onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-            aria-label="User Profile Menu"
-            className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-md hover:bg-blue-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-600/30"
-          >
-            {getInitialChar()}
+        <div className="flex items-center gap-md">
+          <div className="bg-surface border border-ash-border rounded-lg flex items-center px-md py-sm shadow-sm cursor-pointer hover:bg-silver-container transition-colors">
+            <span className="material-symbols-outlined text-secondary mr-sm text-sm">calendar_today</span>
+            <span className="font-label-md text-label-md text-primary">Last 7 Days</span>
+            <span className="material-symbols-outlined text-secondary ml-sm text-sm">expand_more</span>
+          </div>
+          <button className="bg-surface border border-ash-border text-charcoal-dark font-label-md text-label-md px-md py-sm rounded-lg hover:bg-silver-container transition-colors shadow-sm flex items-center gap-sm">
+            <span className="material-symbols-outlined text-sm">download</span>
+            Export Summary
           </button>
+        </div>
+      </div>
 
-          {/* Profile Dropdown Menu */}
-          {isProfileMenuOpen && (
-            <div className="absolute right-0 top-12 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 p-4 text-slate-800 space-y-4">
-              {/* 👤 Profile Header */}
-              <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                <div className="w-11 h-11 rounded-full bg-blue-600 text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-sm">
-                  {getInitialChar()}
-                </div>
-                <div className="overflow-hidden">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-sm text-slate-900 truncate">{getUserDisplayName()}</h4>
-                    <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded-full shrink-0">Active</span>
-                  </div>
-                  <p className="text-xs text-slate-500 truncate">{getUserDisplayEmail()}</p>
-                </div>
-              </div>
-
-              {/* ⚙️ Settings */}
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
-                  <SettingsIcon />
-                  <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Settings</span>
-                </div>
-                
-                <div className="flex items-center justify-between text-xs py-1 px-1">
-                  <span className="text-slate-700 font-medium">Theme</span>
-                  <button
-                    onClick={() => setTheme(theme === 'Light' ? 'Dark' : 'Light')}
-                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-md font-semibold text-[11px] transition-colors"
-                  >
-                    {theme} ☀️
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between text-xs py-1 px-1">
-                  <span className="text-slate-700 font-medium">App Language</span>
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="text-[11px] bg-slate-100 border border-slate-200 rounded-md px-2 py-1 text-slate-800 font-semibold focus:outline-none"
-                  >
-                    <option value="English">English</option>
-                    <option value="Spanish">Spanish</option>
-                    <option value="French">French</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* 🚪 Logout & Danger Zone */}
-              <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100/80 rounded-lg flex items-center gap-2.5 transition-colors"
-                >
-                  <LogoutIcon />
-                  <span>Logout</span>
-                </button>
-
-                <div className="pt-2 border-t border-slate-100">
-                  <button
-                    onClick={handleOpenDeleteModal}
-                    className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2.5 transition-colors"
-                  >
-                    <TrashIcon />
-                    <span>Delete Account</span>
-                  </button>
-                </div>
-              </div>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-md">
+        {/* KPI 1: Active Forms */}
+        <div className="bg-surface border border-ash-border rounded-xl p-lg flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start mb-md">
+            <span className="font-label-md text-label-md text-secondary font-semibold">Active Forms</span>
+            <span className="material-symbols-outlined text-electric-indigo">description</span>
+          </div>
+          <div className="flex items-end justify-between">
+            <div>
+              <span className="font-display-lg text-display-lg text-charcoal-dark font-black">{totalFormsCount}</span>
+              <span className="text-[10px] text-secondary font-bold block">{publishedFormsCount} Published</span>
             </div>
-          )}
-        </div>
-      </header>
-
-      {/* Hero Content */}
-      <main className="p-8 flex-1 bg-slate-50">
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-xl p-6 text-white mb-8 shadow-sm flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold mb-1">Welcome to FormPilotX, {getUserDisplayName().split(' ')[0]}!</h1>
-            <p className="text-sm opacity-90">Manage your forms and dynamic field builder effortlessly.</p>
-          </div>
-          <button
-            onClick={() => navigate('/forms')}
-            className="px-4 py-2 bg-white text-blue-600 font-bold text-xs rounded-lg shadow hover:bg-blue-50 transition-colors shrink-0"
-          >
-            Go to My Forms →
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div
-            onClick={() => navigate('/forms')}
-            className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-blue-400 transition-all"
-          >
-            <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg mb-3">📋</div>
-            <h3 className="font-bold text-slate-900 text-sm mb-1">My Forms</h3>
-            <p className="text-xs text-slate-500 mb-2">Build & manage forms</p>
-            <span className="text-xs font-bold text-blue-600 hover:underline">View Forms →</span>
-          </div>
-
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="w-10 h-10 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center font-bold text-lg mb-3">⚡</div>
-            <h3 className="font-bold text-slate-900 text-sm mb-1">Total Responses</h3>
-            <p className="text-2xl font-extrabold text-slate-900 mb-1">1,420</p>
-            <p className="text-xs text-emerald-600 font-medium">↑ +18% from last week</p>
-          </div>
-
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg mb-3">🔄</div>
-            <h3 className="font-bold text-slate-900 text-sm mb-1">Automation Workflows</h3>
-            <p className="text-2xl font-extrabold text-slate-900 mb-1">8 Active</p>
-            <p className="text-xs text-slate-500">Webhooks connected</p>
+            <span className="bg-mint-emerald/10 text-mint-emerald font-label-sm text-label-sm px-sm py-xs rounded-full flex items-center gap-xs font-semibold">
+              <span className="material-symbols-outlined text-[14px]">trending_up</span> Live
+            </span>
           </div>
         </div>
-      </main>
-    </div>
+
+        {/* KPI 2 */}
+        <div className="bg-surface border border-ash-border rounded-xl p-lg flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start mb-md">
+            <span className="font-label-md text-label-md text-secondary font-semibold">Submissions Today</span>
+            <span className="material-symbols-outlined text-mint-emerald">inbox</span>
+          </div>
+          <div className="flex items-end justify-between">
+            <span className="font-display-lg text-display-lg text-charcoal-dark font-black">486</span>
+            <span className="bg-mint-emerald/10 text-mint-emerald font-label-sm text-label-sm px-sm py-xs rounded-full flex items-center gap-xs font-semibold">
+              <span className="material-symbols-outlined text-[14px]">trending_up</span> +24% vs yday
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 3 */}
+        <div className="bg-surface border border-ash-border rounded-xl p-lg flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start mb-md">
+            <span className="font-label-md text-label-md text-secondary font-semibold">Avg. Completion Rate</span>
+            <span className="material-symbols-outlined text-cyan-accent">data_usage</span>
+          </div>
+          <div className="flex items-end justify-between">
+            <span className="font-display-lg text-display-lg text-charcoal-dark font-black">67%</span>
+            <div className="w-12 h-12 rounded-full border-4 border-silver-container flex items-center justify-center relative">
+              <div className="absolute inset-0 rounded-full border-4 border-cyan-accent border-r-transparent border-t-transparent -rotate-45"></div>
+              <span className="font-label-sm text-label-sm text-charcoal-dark font-bold">67%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4 */}
+        <div className="bg-surface border border-ash-border rounded-xl p-lg flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start mb-md">
+            <span className="font-label-md text-label-md text-secondary font-semibold">Active Workflow Rules</span>
+            <span className="material-symbols-outlined text-warm-amber">rule</span>
+          </div>
+          <div className="flex items-end justify-between">
+            <span className="font-display-lg text-display-lg text-charcoal-dark font-black">14</span>
+            <span className="bg-warm-amber/10 text-warm-amber font-label-sm text-label-sm px-sm py-xs rounded-full flex items-center gap-xs font-semibold">
+              <span className="material-symbols-outlined text-[14px]">check_circle</span> All operational
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Middle Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-xl">
+        {/* Bar Chart (Left - 65%) */}
+        <div className="lg:col-span-8 bg-surface border border-ash-border rounded-xl shadow-sm flex flex-col overflow-hidden">
+          <div className="px-6 py-4 border-b border-ash-border flex justify-between items-center">
+            <h3 className="font-headline-md text-headline-md text-charcoal-dark font-bold">Submissions per Form</h3>
+            <span className="font-label-sm text-label-sm text-secondary font-medium">Real-time Metrics</span>
+          </div>
+          <div className="p-6 flex flex-col gap-4">
+            {barItems.map((bar, idx) => (
+              <div key={idx} className="flex items-center gap-md">
+                <div className="w-1/3 font-label-sm text-label-sm text-secondary text-right truncate font-medium" title={bar.title}>{bar.title}</div>
+                <div className="flex-1 h-6 bg-silver-container rounded-r-full overflow-hidden flex items-center">
+                  <div className="h-full bg-gradient-to-r from-slate-400 to-electric-indigo rounded-r-full flex items-center justify-end pr-sm transition-all duration-500" style={{ width: bar.width }}>
+                    <span className="font-label-sm text-label-sm text-white mr-xs font-bold">{bar.count}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Active Forms List (Right - 35%) */}
+        <div className="lg:col-span-4 bg-surface border border-ash-border rounded-xl p-lg shadow-sm">
+          <div className="flex justify-between items-center mb-md border-b border-ash-border pb-md">
+            <h3 className="font-headline-md text-headline-md text-charcoal-dark font-bold">Recently Active Forms</h3>
+            <span onClick={() => navigate('/forms')} className="font-label-sm text-label-sm text-primary hover:underline cursor-pointer font-bold">View All</span>
+          </div>
+          <div className="flex flex-col gap-sm">
+            {(forms.length > 0 ? forms.slice(0, 4) : [
+              { id: '1', title: 'Job Application Q3', responses: 142 },
+              { id: '2', title: 'Customer Feedback 2026', responses: 110 },
+              { id: '3', title: 'KYC Verification - EU', responses: 84 },
+              { id: '4', title: 'Event Registration: Tech...', responses: 48 }
+            ]).map((form, idx) => (
+              <div key={form.id || idx} className="flex items-center justify-between p-sm hover:bg-silver-container rounded-lg transition-colors border border-transparent hover:border-ash-border">
+                <div className="flex items-center gap-md">
+                  <div className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-mint-emerald opacity-75" style={{ animationDelay: `${idx * 0.2}s` }}></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-mint-emerald"></span>
+                  </div>
+                  <div>
+                    <div className="font-label-md text-label-md text-charcoal-dark font-bold">{form.title}</div>
+                    <div className="font-body-sm text-body-sm text-secondary">{form.responses || 142 - idx * 20} total responses</div>
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => handleOpenShareModal(e, form)}
+                  className="text-secondary hover:text-primary transition-colors p-sm rounded bg-surface border border-ash-border"
+                  title="Share Link"
+                >
+                  <span className="material-symbols-outlined text-sm">share</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Section: Recent Submissions */}
+      <div className="bg-surface border border-ash-border rounded-xl shadow-sm overflow-hidden flex flex-col">
+        <div className="p-lg border-b border-ash-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md">
+          <h3 className="font-headline-md text-headline-md text-charcoal-dark font-bold">Recent Submissions</h3>
+          <div className="flex bg-silver-container p-xs rounded-lg">
+            {['All', 'Approved', 'Under Review', 'Completed'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setSubFilter(tab)}
+                className={`px-md py-xs rounded font-label-sm text-label-sm transition-all ${
+                  subFilter === tab
+                    ? 'bg-surface shadow-sm text-primary font-bold'
+                    : 'hover:bg-surface/50 text-secondary'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr className="border-b-2 border-charcoal-dark bg-platinum-bg">
+                <th className="py-sm px-md font-label-sm text-label-sm text-secondary font-semibold">Tracking ID</th>
+                <th className="py-sm px-md font-label-sm text-label-sm text-secondary font-semibold">Form Name</th>
+                <th className="py-sm px-md font-label-sm text-label-sm text-secondary font-semibold">Respondent</th>
+                <th className="py-sm px-md font-label-sm text-label-sm text-secondary font-semibold">Time Taken</th>
+                <th className="py-sm px-md font-label-sm text-label-sm text-secondary font-semibold">Submitted At</th>
+                <th className="py-sm px-md font-label-sm text-label-sm text-secondary font-semibold">Status</th>
+                <th className="py-sm px-md font-label-sm text-label-sm text-secondary font-semibold text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ash-border font-body-sm text-body-sm text-charcoal-dark">
+              {filteredSubmissions.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="py-8 text-center text-xs text-secondary font-medium">
+                    No submissions found under the "{subFilter}" filter. Awaiting responses for active forms.
+                  </td>
+                </tr>
+              ) : (
+                filteredSubmissions.map((row, idx) => (
+                  <tr key={row.id} className={`${idx % 2 === 1 ? 'bg-silver-container/30' : ''} hover:bg-silver-container/50 transition-colors`}>
+                    <td className="py-md px-md font-mono text-xs font-bold">{row.id}</td>
+                    <td className="py-md px-md font-medium">{row.form}</td>
+                    <td className="py-md px-md">
+                      <div className="flex items-center gap-sm">
+                        <div className={`w-6 h-6 rounded-full ${row.bg} flex items-center justify-center font-bold text-[10px]`}>
+                          {row.initials}
+                        </div>
+                        <span>{row.respondent}</span>
+                      </div>
+                    </td>
+                    <td className="py-md px-md text-secondary">{row.time}</td>
+                    <td className="py-md px-md text-secondary">{row.submitted}</td>
+                    <td className="py-md px-md">
+                      {row.status === 'Approved' && (
+                        <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-mint-emerald/10 text-mint-emerald font-label-sm text-label-sm font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-mint-emerald"></span> Approved
+                        </span>
+                      )}
+                      {row.status === 'Under Review' && (
+                        <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-warm-amber/10 text-warm-amber font-label-sm text-label-sm font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-warm-amber"></span> Under Review
+                        </span>
+                      )}
+                      {row.status === 'Completed' && (
+                        <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-cyan-accent/10 text-cyan-accent font-label-sm text-label-sm font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-accent"></span> Completed
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-md px-md text-right">
+                      <button className="text-secondary hover:text-primary transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Share Form Link Modal */}
+      {shareModalForm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-surface rounded-xl shadow-2xl border border-ash-border max-w-md w-full p-6 text-left space-y-4">
+            <div className="flex items-center justify-between border-b border-ash-border pb-3">
+              <h3 className="font-bold text-primary text-base flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm">share</span> Share Form Link
+              </h3>
+              <button
+                onClick={() => setShareModalForm(null)}
+                className="text-secondary hover:text-primary text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {generatingLink ? (
+              <p className="text-xs text-secondary py-4 text-center">Generating share link...</p>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs text-secondary leading-relaxed">
+                  Anyone with this public link can fill out and submit responses to this form:
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={shareUrl}
+                    className="flex-1 h-9 px-3 border border-ash-border rounded-lg text-xs font-mono bg-silver-container text-primary"
+                  />
+                  <button
+                    onClick={handleCopyShareLink}
+                    className="px-3.5 py-2 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-lg transition-opacity shrink-0 shadow-sm"
+                  >
+                    {copiedLink ? 'Copied! ✓' : 'Copy Link'}
+                  </button>
+                </div>
+
+                <div className="pt-2 flex items-center justify-between">
+                  <a
+                    href={shareUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-bold text-electric-indigo hover:underline flex items-center gap-1"
+                  >
+                    <span>↗</span> Open Public Form
+                  </a>
+
+                  <button
+                    onClick={() => setShareModalForm(null)}
+                    className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-lg transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </SaaSAppShell>
   );
 };

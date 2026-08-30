@@ -27,7 +27,6 @@ const CreateFormView = () => {
         title: title.trim(),
         description: description.trim() || undefined
       });
-      // On success, navigate directly to Form Builder page (/forms/:id/edit)
       navigate(`/forms/${form.id}/edit`);
     } catch (err) {
       setError(err.message || 'Failed to create form.');
@@ -37,80 +36,78 @@ const CreateFormView = () => {
   };
 
   return (
-    <div className="w-full max-w-2xl bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden flex flex-col my-auto">
-      {/* Top Header */}
-      <header className="h-16 px-6 border-b border-slate-200 flex items-center justify-between bg-white">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/forms')}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1"
-          >
-            ← Back to Forms
-          </button>
-          <span className="text-slate-300">|</span>
-          <h1 className="text-sm font-bold text-slate-900">Create New Form</h1>
+    <SaaSAppShell activeTab="forms">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="flex items-center justify-between border-b border-ash-border pb-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/forms')}
+              className="text-xs font-bold text-secondary hover:text-primary transition-colors flex items-center gap-1"
+            >
+              ← Back to Portfolio
+            </button>
+            <span className="text-ash-border">|</span>
+            <h1 className="font-headline-md text-headline-md font-bold text-charcoal-dark">Create New Form</h1>
+          </div>
         </div>
-      </header>
 
-      {/* Form Content */}
-      <div className="p-6 sm:p-8 bg-slate-50">
-        <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900 mb-1">Form Details</h2>
-          <p className="text-xs text-slate-500 mb-6">Enter a title and description to start building your form.</p>
+        <div className="bg-surface border border-ash-border rounded-2xl p-6 sm:p-8 shadow-sm">
+          <h2 className="text-base font-bold text-charcoal-dark mb-1">Form Specification</h2>
+          <p className="text-xs text-secondary mb-6">Enter a title and description to initialize your form builder studio.</p>
 
           {error && (
-            <div className="mb-5 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 font-medium">
+            <div className="mb-5 p-3.5 bg-error-container/40 border border-error/20 rounded-xl text-xs text-error font-medium">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Form Title <span className="text-red-500">*</span>
+              <label className="block text-xs font-bold text-charcoal-dark mb-1.5">
+                Form Title <span className="text-error">*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Customer Feedback Survey"
+                placeholder="e.g., Customer Feedback Survey or Product Onboarding"
                 required
-                className="w-full h-10 px-3 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all bg-white"
+                className="w-full h-10 px-3.5 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Description <span className="text-slate-400 font-normal">(Optional)</span>
+              <label className="block text-xs font-bold text-charcoal-dark mb-1.5">
+                Description <span className="text-secondary font-normal">(Optional)</span>
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Briefly describe the purpose of this form..."
+                placeholder="Briefly describe the target audience and purpose of this form..."
                 rows={3}
-                className="w-full p-3 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all bg-white resize-none"
+                className="w-full p-3.5 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark transition-all resize-none"
               />
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+            <div className="pt-4 border-t border-ash-border flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => navigate('/forms')}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
+                className="px-4 py-2.5 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+                className="px-5 py-2.5 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center gap-1.5"
               >
-                {loading ? 'Creating...' : 'Create Form →'}
+                {loading ? 'Initializing Studio...' : 'Initialize Form Studio →'}
               </button>
             </div>
           </form>
         </div>
       </div>
-    </div>
+    </SaaSAppShell>
   );
 };

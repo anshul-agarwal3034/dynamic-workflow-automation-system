@@ -13,7 +13,7 @@ class Submission(Base):
 
     form_version_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("form_versions.id", ondelete="RESTRICT"),
+        ForeignKey("form_versions.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
@@ -25,4 +25,4 @@ class Submission(Base):
     completion_time_seconds = Column(Integer, nullable=True)
 
     form_version = relationship("FormVersion", back_populates="submissions")
-    response_values = relationship("ResponseValue", back_populates="submission")
+    response_values = relationship("ResponseValue", back_populates="submission", cascade="all, delete-orphan", passive_deletes=True)

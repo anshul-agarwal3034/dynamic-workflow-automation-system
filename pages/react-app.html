@@ -1,38 +1,156 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FormPilotX - Authentication & Form Management Application</title>
+    <title>FormPilotX - Enterprise SaaS Dashboard Overview</title>
     <!-- React & ReactDOM Standalone -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#45474a",
+                        "primary-fixed-dim": "#c6c6ca",
+                        "secondary": "#595f66",
+                        "error-alert": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "on-secondary-container": "#5f656c",
+                        "on-primary-fixed-variant": "#45474a",
+                        "on-tertiary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#41474e",
+                        "on-primary": "#ffffff",
+                        "silver-container": "#f1f3f5",
+                        "success-neutral": "#2b2d31",
+                        "secondary-fixed-dim": "#c1c7cf",
+                        "surface": "#fcf8f8",
+                        "on-surface": "#1c1b1c",
+                        "surface-container-lowest": "#ffffff",
+                        "charcoal-muted": "#3f444a",
+                        "secondary-fixed": "#dde3eb",
+                        "outline-variant": "#c6c6ca",
+                        "on-primary-container": "#838487",
+                        "error-container": "#ffdad6",
+                        "primary-container": "#1a1c1f",
+                        "on-primary-fixed": "#1a1c1f",
+                        "primary-fixed": "#e2e2e6",
+                        "on-tertiary-fixed": "#201b15",
+                        "surface-bright": "#fcf8f8",
+                        "outline": "#76777b",
+                        "primary": "#000000",
+                        "charcoal-dark": "#121417",
+                        "surface-container-low": "#f6f3f2",
+                        "surface-container-highest": "#e5e2e1",
+                        "on-secondary-fixed": "#161c22",
+                        "surface-tint": "#5d5e62",
+                        "surface-variant": "#e5e2e1",
+                        "tertiary-fixed-dim": "#cfc5bc",
+                        "surface-container": "#f1eded",
+                        "error": "#ba1a1a",
+                        "on-tertiary-container": "#8b827b",
+                        "inverse-on-surface": "#f4f0f0",
+                        "secondary-container": "#dde3eb",
+                        "tertiary-fixed": "#ece0d8",
+                        "platinum-bg": "#f8f9fa",
+                        "surface-dim": "#ddd9d9",
+                        "inverse-primary": "#c6c6ca",
+                        "on-tertiary-fixed-variant": "#4d453f",
+                        "surface-container-high": "#ebe7e7",
+                        "background": "#fcf8f8",
+                        "ash-border": "#dee2e6",
+                        "tertiary-container": "#201b15",
+                        "on-background": "#1c1b1c",
+                        "inverse-surface": "#313030",
+                        "on-secondary": "#ffffff",
+                        "tertiary": "#000000",
+                        "electric-indigo": "#6366F1",
+                        "mint-emerald": "#10B981",
+                        "cyan-accent": "#0EA5E9",
+                        "warm-amber": "#F59E0B"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "sidebar": "280px",
+                        "2xl": "48px",
+                        "md": "16px",
+                        "max-width": "1440px",
+                        "xl": "32px",
+                        "3xl": "64px",
+                        "base": "4px",
+                        "xs": "4px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
     <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-slate-100">
-    <div id="root"></div>
+<body class="bg-platinum-bg text-on-background font-body-md min-h-screen flex antialiased">
+    <div id="root" class="w-full flex min-h-screen"></div>
 
     <!-- Router & Modular Component Scripts -->
-    <script type="text/babel" src="SimpleRouter.jsx"></script>
-    <script type="text/babel" src="SharedComponents.jsx"></script>
-    <script type="text/babel" src="formsApi.js"></script>
-    <script type="text/babel" src="Signup.jsx"></script>
-    <script type="text/babel" src="SignupVerify.jsx"></script>
-    <script type="text/babel" src="Signin.jsx"></script>
-    <script type="text/babel" src="ForgotPassword.jsx"></script>
-    <script type="text/babel" src="ForgotVerify.jsx"></script>
-    <script type="text/babel" src="ForgotReset.jsx"></script>
-    <script type="text/babel" src="Home.jsx"></script>
-    <script type="text/babel" src="FormsList.jsx"></script>
-    <script type="text/babel" src="CreateFormPage.jsx"></script>
-    <script type="text/babel" src="FormBuilder.jsx"></script>
-    <script type="text/babel" src="FormDetail.jsx"></script>
-    <script type="text/babel" src="FormPilotXAuth.jsx"></script>
+    <script type="text/babel" src="SimpleRouter.jsx?v=13"></script>
+    <script type="text/babel" src="SharedComponents.jsx?v=13"></script>
+    <script type="text/babel" src="formsApi.js?v=13"></script>
+    <script type="text/babel" src="Signup.jsx?v=13"></script>
+    <script type="text/babel" src="SignupVerify.jsx?v=13"></script>
+    <script type="text/babel" src="Signin.jsx?v=13"></script>
+    <script type="text/babel" src="ForgotPassword.jsx?v=13"></script>
+    <script type="text/babel" src="ForgotVerify.jsx?v=13"></script>
+    <script type="text/babel" src="ForgotReset.jsx?v=13"></script>
+    <script type="text/babel" src="Home.jsx?v=13"></script>
+    <script type="text/babel" src="FormsList.jsx?v=13"></script>
+    <script type="text/babel" src="CreateFormPage.jsx?v=13"></script>
+    <script type="text/babel" src="FormBuilder.jsx?v=13"></script>
+    <script type="text/babel" src="FormDetail.jsx?v=13"></script>
+    <script type="text/babel" src="PublicFormView.jsx?v=13"></script>
+    <script type="text/babel" src="SubmissionsView.jsx?v=13"></script>
+    <script type="text/babel" src="FormPilotXAuth.jsx?v=13"></script>
 
     <!-- Mount React Application -->
     <script type="text/babel">

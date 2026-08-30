@@ -24,5 +24,5 @@ class FormVersion(Base):
     published_at = Column(DateTime(timezone=True), nullable=True)
 
     form = relationship("Form", back_populates="versions")
-    fields = relationship("Field", back_populates="form_version")
-    submissions = relationship("Submission", back_populates="form_version")
+    fields = relationship("Field", back_populates="form_version", cascade="all, delete-orphan", passive_deletes=True)
+    submissions = relationship("Submission", back_populates="form_version", cascade="all, delete-orphan", passive_deletes=True)

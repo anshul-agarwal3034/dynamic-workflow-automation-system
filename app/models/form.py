@@ -13,6 +13,7 @@ class Form(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String(20), nullable=False, default="draft")
+    share_slug = Column(String(100), nullable=True, unique=True, index=True)
 
     created_by = Column(
         UUID(as_uuid=True),
@@ -34,4 +35,4 @@ class Form(Base):
     )
 
     creator = relationship("User", back_populates="forms")
-    versions = relationship("FormVersion", back_populates="form")
+    versions = relationship("FormVersion", back_populates="form", cascade="all, delete-orphan", passive_deletes=True)

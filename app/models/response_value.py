@@ -20,7 +20,7 @@ class ResponseValue(Base):
 
     field_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("fields.id", ondelete="RESTRICT"),
+        ForeignKey("fields.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )

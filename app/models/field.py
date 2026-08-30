@@ -24,16 +24,20 @@ class Field(Base):
     validation_config = Column(JSONB, nullable=True)
 
     form_version = relationship("FormVersion", back_populates="fields")
-    options = relationship("FieldOption", back_populates="field")
+    options = relationship("FieldOption", back_populates="field", cascade="all, delete-orphan", passive_deletes=True)
 
     triggers_rules = relationship(
         "ConditionalRule",
         foreign_keys="ConditionalRule.trigger_field_id",
-        back_populates="trigger_field"
+        back_populates="trigger_field",
+        cascade="all, delete-orphan",
+        passive_deletes=True
     )
     targeted_by_rules = relationship(
         "ConditionalRule",
         foreign_keys="ConditionalRule.target_field_id",
-        back_populates="target_field"
+        back_populates="target_field",
+        cascade="all, delete-orphan",
+        passive_deletes=True
     )
-    response_values = relationship("ResponseValue", back_populates="field")
+    response_values = relationship("ResponseValue", back_populates="field", cascade="all, delete-orphan", passive_deletes=True)

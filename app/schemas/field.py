@@ -30,6 +30,14 @@ class FieldCreate(BaseModel):
     options: Optional[List[FieldOptionCreate]] = None
 
 
+class FieldUpdate(BaseModel):
+    label: Optional[str] = None
+    placeholder: Optional[str] = None
+    is_required: Optional[bool] = None
+    display_order: Optional[int] = None
+    options: Optional[List[FieldOptionCreate]] = None
+
+
 class FieldResponse(BaseModel):
     id: uuid.UUID
     form_version_id: uuid.UUID
@@ -50,7 +58,5 @@ class FieldReorderItem(BaseModel):
     display_order: int
 
 
-# FieldReorderRequest exact shape:
-# A list of {field_id, display_order} objects passed in payload
 class FieldReorderRequest(BaseModel):
     items: List[FieldReorderItem]
