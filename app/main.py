@@ -1,3 +1,9 @@
+# ==============================================================================
+# Author: Anshul Agarwal
+# Project: FormPilotX — Dynamic Form Engine & Lifecycle Management System
+# Build: FPX-AA-2026-M1
+# ==============================================================================
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +30,13 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Custom Response Header Middleware attaching authorship metadata
+@app.middleware("http")
+async def add_author_header(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Engine-Author"] = "Anshul Agarwal"
+    return response
 
 # CORS Middleware setup allowing static frontend origins
 app.add_middleware(

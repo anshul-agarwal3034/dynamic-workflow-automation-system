@@ -1,3 +1,9 @@
+/*
+ * Author: Anshul Agarwal
+ * Project: FormPilotX — Dynamic Form Engine & Lifecycle Management System
+ * Build: FPX-AA-2026-M1
+ */
+
 const API_BASE = 'http://127.0.0.1:8000';
 
 const getAuthHeaders = () => {
