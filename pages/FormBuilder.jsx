@@ -1,9 +1,3 @@
-/*
- * Author: Anshul Agarwal
- * Project: FormPilotX — Dynamic Form Engine & Lifecycle Management System
- * Build: FPX-AA-2026-M1
- */
-
 const FormBuilderView = ({ id }) => {
   const [form, setForm] = React.useState(null);
   const [loading, setLoading] = React.useState(true);

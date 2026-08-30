@@ -1,9 +1,3 @@
-# ==============================================================================
-# Author: Anshul Agarwal
-# Project: FormPilotX — Dynamic Form Engine & Lifecycle Management System
-# Build: FPX-AA-2026-M1
-# ==============================================================================
-
 import uuid
 from sqlalchemy import Column, String, Text, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
