@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -9,10 +10,13 @@ import app.models  # Ensures all SQLAlchemy models are registered on Base.metada
 from app.api.routes.auth import router as auth_router
 from app.api.routes.forms import router as forms_router
 from app.api.routes.public import router as public_router
+from app.api.routes.files import router as files_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure uploads directory exists
+    os.makedirs(os.path.abspath("uploads"), exist_ok=True)
     # Base.metadata.create_all() is idempotent — it creates tables if they don't exist
     Base.metadata.create_all(bind=engine)
     yield
@@ -39,21 +43,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register Authentication, Form Management, and Public Routes
+# Register Authentication, Form Management, Public, and File Routes
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(forms_router, prefix="", tags=["forms"])
 app.include_router(public_router, prefix="", tags=["public"])
+app.include_router(files_router, prefix="", tags=["files"])
 
-# Mount static pages directory
-if os.path.exists("pages"):
-    app.mount("/pages", StaticFiles(directory="pages", html=True), name="pages")
+# Mount static frontend directory
+if os.path.exists("frontend"):
+    app.mount("/app", StaticFiles(directory="frontend", html=True), name="frontend")
 
 
-@app.get("/")
-def root():
-    return {
-        "message": "Dynamic Workflow Automation System API is running"
-    }
+@app.get("/", include_in_schema=False)
+def root_redirect():
+    return RedirectResponse(url="/app/public/index.html")
 
 
 @app.get("/health")

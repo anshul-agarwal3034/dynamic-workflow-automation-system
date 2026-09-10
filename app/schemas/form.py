@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.field import FieldResponse
+from app.schemas.conditional_rule import ConditionalRuleResponse
 
 
 class FormCreate(BaseModel):
@@ -24,8 +25,7 @@ class FormVersionResponse(BaseModel):
     published_at: Optional[datetime] = None
     fields: List[FieldResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FormVersionSummaryResponse(BaseModel):
@@ -36,8 +36,7 @@ class FormVersionSummaryResponse(BaseModel):
     published_at: Optional[datetime] = None
     field_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FormResponse(BaseModel):
@@ -51,8 +50,7 @@ class FormResponse(BaseModel):
     updated_at: datetime
     versions: List[FormVersionResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ShareLinkResponse(BaseModel):
@@ -68,7 +66,7 @@ class PublicFormResponse(BaseModel):
     version_number: int
     published_at: Optional[datetime] = None
     fields: List[FieldResponse] = []
+    rules: List[ConditionalRuleResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 

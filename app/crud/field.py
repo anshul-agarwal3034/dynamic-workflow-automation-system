@@ -60,6 +60,8 @@ def update_field_in_version(db: Session, field: Field, field_data: FieldUpdate) 
         field.is_required = field_data.is_required
     if field_data.display_order is not None:
         field.display_order = field_data.display_order
+    if field_data.validation_config is not None:
+        field.validation_config = field_data.validation_config
 
     if field_data.options is not None:
         # Delete existing options and insert new ones

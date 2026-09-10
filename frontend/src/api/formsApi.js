@@ -16,10 +16,14 @@ const handleResponse = async (response) => {
     data = null;
   }
   if (!response.ok) {
-    const detail = data && data.detail 
+    const errorMsg = data && data.detail 
       ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail))
       : `HTTP ${response.status} ${response.statusText}`;
-    throw new Error(detail);
+    const err = new Error(errorMsg);
+    err.status = response.status;
+    err.data = data;
+    err.detail = data ? data.detail : null;
+    throw err;
   }
   return data;
 };
@@ -103,6 +107,10 @@ const formsApi = {
     return handleResponse(res);
   },
 
+  async createField(formId, fieldData) {
+    return this.addField(formId, fieldData);
+  },
+
   async updateField(fieldId, fieldData) {
     const res = await fetch(`${API_BASE}/fields/${fieldId}`, {
       method: 'PUT',
@@ -153,6 +161,67 @@ const formsApi = {
 
   async getPublicForm(slug) {
     const res = await fetch(`${API_BASE}/public/forms/${slug}`);
+    return handleResponse(res);
+  },
+
+  async submitForm(slug, submissionData) {
+    const res = await fetch(`${API_BASE}/public/forms/${slug}/submit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(submissionData)
+    });
+    return handleResponse(res);
+  },
+
+  async uploadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    return handleResponse(res);
+  },
+
+  async createRule(formId, ruleData) {
+    const res = await fetch(`${API_BASE}/forms/${formId}/rules`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(ruleData)
+    });
+    return handleResponse(res);
+  },
+
+  async getRules(formId) {
+    const res = await fetch(`${API_BASE}/forms/${formId}/rules`, {
+      headers: getAuthHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async updateRule(ruleId, ruleData) {
+    const res = await fetch(`${API_BASE}/rules/${ruleId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(ruleData)
+    });
+    return handleResponse(res);
+  },
+
+  async deleteRule(ruleId) {
+    const res = await fetch(`${API_BASE}/rules/${ruleId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async getFormSubmissions(formId) {
+    const res = await fetch(`${API_BASE}/forms/${formId}/submissions`, {
+      headers: getAuthHeaders()
+    });
     return handleResponse(res);
   }
 };

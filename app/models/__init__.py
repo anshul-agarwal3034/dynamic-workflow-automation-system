@@ -6,6 +6,7 @@ from app.models.field_option import FieldOption
 from app.models.conditional_rule import ConditionalRule
 from app.models.submission import Submission
 from app.models.response_value import ResponseValue
+from app.models.uploaded_file import UploadedFile
 
 __all__ = [
     "User",
@@ -16,4 +17,5 @@ __all__ = [
     "ConditionalRule",
     "Submission",
     "ResponseValue",
+    "UploadedFile",
 ]

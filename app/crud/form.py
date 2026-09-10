@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.form import Form
 from app.models.form_version import FormVersion
 from app.models.field import Field
+from app.models.field_option import FieldOption
+from app.models.conditional_rule import ConditionalRule
 
 
 def create_form_with_version(db: Session, title: str, description: str | None, user_id: uuid.UUID) -> Form:
@@ -204,7 +206,8 @@ def ensure_draft_version(db: Session, form: Form) -> FormVersion:
     db.add(new_version)
     db.flush()
 
-    # Clone fields and options
+    # Clone fields and options with ID remapping
+    old_to_new_field_ids = {}
     for field in latest_version.fields:
         cloned_field = Field(
             form_version_id=new_version.id,
@@ -217,6 +220,7 @@ def ensure_draft_version(db: Session, form: Form) -> FormVersion:
         )
         db.add(cloned_field)
         db.flush()
+        old_to_new_field_ids[field.id] = cloned_field.id
 
         for opt in field.options:
             cloned_option = FieldOption(
@@ -227,10 +231,31 @@ def ensure_draft_version(db: Session, form: Form) -> FormVersion:
             )
             db.add(cloned_option)
 
+    # Clone conditional rules belonging to the old fields
+    old_field_ids = list(old_to_new_field_ids.keys())
+    if old_field_ids:
+        rules = db.query(ConditionalRule).filter(
+            ConditionalRule.trigger_field_id.in_(old_field_ids),
+            ConditionalRule.target_field_id.in_(old_field_ids)
+        ).all()
+        for rule in rules:
+            new_trigger_id = old_to_new_field_ids.get(rule.trigger_field_id)
+            new_target_id = old_to_new_field_ids.get(rule.target_field_id)
+            if new_trigger_id and new_target_id:
+                cloned_rule = ConditionalRule(
+                    trigger_field_id=new_trigger_id,
+                    target_field_id=new_target_id,
+                    operator=rule.operator,
+                    comparison_value=rule.comparison_value,
+                    action=rule.action
+                )
+                db.add(cloned_rule)
+
     form.status = "draft"
     form.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(form)
+    db.refresh(new_version)
     return new_version
 
 

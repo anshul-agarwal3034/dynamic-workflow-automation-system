@@ -35,7 +35,19 @@ from app.schemas.form import (
     ShareLinkResponse
 )
 from app.schemas.field import FieldCreate, FieldUpdate, FieldResponse, FieldReorderRequest
+from app.schemas.conditional_rule import (
+    ConditionalRuleCreate,
+    ConditionalRuleUpdate,
+    ConditionalRuleResponse
+)
 from app.models.user import User
+from app.models.form import Form
+from app.models.form_version import FormVersion
+from app.models.field import Field
+from app.models.conditional_rule import ConditionalRule
+from app.models.submission import Submission
+from app.models.response_value import ResponseValue
+from app.models.uploaded_file import UploadedFile
 
 router = APIRouter()
 
@@ -215,7 +227,7 @@ def generate_share_link_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to generate share link for this form.")
 
     slug = generate_share_slug(db=db, form=form)
-    share_url = f"http://127.0.0.1:8000/pages/react-app.html#/public/forms/{slug}"
+    share_url = f"http://127.0.0.1:8000/app/public/index.html#/public/forms/{slug}"
     return ShareLinkResponse(share_slug=slug, share_url=share_url)
 
 
@@ -262,8 +274,6 @@ def unarchive_form_endpoint(
 
 
 @router.delete("/forms/{id}", status_code=200)
-@router.delete("/api/forms/{id}", status_code=200)
-@router.delete("/{id}", status_code=200)
 def delete_form_endpoint(
     id: str,
     db: Session = Depends(get_db),
@@ -419,7 +429,6 @@ def update_field_endpoint(
 
 
 @router.delete("/fields/{field_id}", status_code=200)
-@router.delete("/api/fields/{field_id}", status_code=200)
 def delete_field_route(
     field_id: str,
     db: Session = Depends(get_db),
@@ -479,3 +488,237 @@ def reorder_fields_endpoint(
 
     reorder_fields(db=db, items=items)
     return get_form_by_id(db, form.id)
+
+
+@router.post("/forms/{id}/rules", response_model=ConditionalRuleResponse, status_code=status.HTTP_201_CREATED)
+def create_conditional_rule(
+    id: uuid.UUID,
+    payload: ConditionalRuleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Creates a conditional rule for fields belonging to this form.
+    Validates form ownership and verifies both trigger and target fields belong to the form.
+    """
+    form = get_form_by_id(db, form_id=id)
+    if not form:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found.")
+
+    if form.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to add rules to this form.")
+
+    if form.status == "archived":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Rules cannot be added to archived forms.")
+
+    # Validate that both trigger_field_id and target_field_id belong to the given form
+    trigger_field = db.query(Field).join(FormVersion).filter(
+        Field.id == payload.trigger_field_id,
+        FormVersion.form_id == form.id
+    ).first()
+
+    target_field = db.query(Field).join(FormVersion).filter(
+        Field.id == payload.target_field_id,
+        FormVersion.form_id == form.id
+    ).first()
+
+    if not trigger_field or not target_field:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Both trigger_field_id and target_field_id must belong to this form."
+        )
+
+    rule = ConditionalRule(
+        trigger_field_id=payload.trigger_field_id,
+        target_field_id=payload.target_field_id,
+        operator=payload.operator,
+        comparison_value=payload.comparison_value,
+        action=payload.action
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+@router.get("/forms/{id}/rules", response_model=List[ConditionalRuleResponse])
+def get_form_rules(
+    id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Lists all conditional rules associated with the fields of this form.
+    Requires form ownership.
+    """
+    form = get_form_by_id(db, form_id=id)
+    if not form:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found.")
+
+    if form.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view rules for this form.")
+
+    rules = db.query(ConditionalRule).join(
+        Field, ConditionalRule.trigger_field_id == Field.id
+    ).join(
+        FormVersion, Field.form_version_id == FormVersion.id
+    ).filter(
+        FormVersion.form_id == form.id
+    ).all()
+    return rules
+
+
+@router.put("/rules/{rule_id}", response_model=ConditionalRuleResponse)
+def update_conditional_rule(
+    rule_id: uuid.UUID,
+    payload: ConditionalRuleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Updates an existing conditional rule.
+    Requires rule existence and ownership via parent field/form.
+    """
+    rule = db.query(ConditionalRule).filter(ConditionalRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found.")
+
+    if not rule.trigger_field or not rule.trigger_field.form_version or not rule.trigger_field.form_version.form:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form associated with this rule not found.")
+
+    form = rule.trigger_field.form_version.form
+    if form.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to modify this rule.")
+
+    if form.status == "archived":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Archived forms cannot be modified.")
+
+    new_trigger_id = payload.trigger_field_id if payload.trigger_field_id is not None else rule.trigger_field_id
+    new_target_id = payload.target_field_id if payload.target_field_id is not None else rule.target_field_id
+
+    if new_trigger_id == new_target_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A field cannot target itself: trigger_field_id cannot equal target_field_id."
+        )
+
+    if payload.trigger_field_id is not None:
+        tf = db.query(Field).join(FormVersion).filter(Field.id == payload.trigger_field_id, FormVersion.form_id == form.id).first()
+        if not tf:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Trigger field does not belong to this form.")
+        rule.trigger_field_id = payload.trigger_field_id
+
+    if payload.target_field_id is not None:
+        tgf = db.query(Field).join(FormVersion).filter(Field.id == payload.target_field_id, FormVersion.form_id == form.id).first()
+        if not tgf:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Target field does not belong to this form.")
+        rule.target_field_id = payload.target_field_id
+
+    if payload.operator is not None:
+        rule.operator = payload.operator
+    if payload.comparison_value is not None:
+        rule.comparison_value = payload.comparison_value
+    if payload.action is not None:
+        rule.action = payload.action
+
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+@router.delete("/rules/{rule_id}")
+def delete_conditional_rule(
+    rule_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes an existing conditional rule.
+    Requires rule existence and ownership.
+    """
+    rule = db.query(ConditionalRule).filter(ConditionalRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found.")
+
+    if not rule.trigger_field or not rule.trigger_field.form_version or not rule.trigger_field.form_version.form:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form associated with this rule not found.")
+
+    form = rule.trigger_field.form_version.form
+    if form.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this rule.")
+
+    db.delete(rule)
+    db.commit()
+    return {"message": "Rule deleted successfully"}
+
+
+@router.get("/forms/{form_id}/submissions")
+def get_form_submissions(
+    form_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retrieves all submissions for a given form owned by current_user, ordered by submitted_at DESC.
+    Resolves response values, field labels, field types, and file metadata.
+    """
+    form = db.query(Form).filter(Form.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found.")
+    if form.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access submissions for this form.")
+
+    # Query all submissions for any version of this form
+    submissions = (
+        db.query(Submission)
+        .join(FormVersion, Submission.form_version_id == FormVersion.id)
+        .filter(FormVersion.form_id == form_id)
+        .order_by(Submission.submitted_at.desc())
+        .all()
+    )
+
+    results = []
+    for sub in submissions:
+        answers = []
+        for rv in sub.response_values:
+            fld = rv.field
+            field_label = fld.label if fld else "Unknown Field"
+            field_type = fld.field_type if fld else "text"
+            val = rv.value
+            file_name = None
+            file_url = None
+
+            # If field is file type or value is a valid file UUID
+            if field_type == "file" and val:
+                file_uuid_str = str(val).strip()
+                try:
+                    f_uuid = uuid.UUID(file_uuid_str)
+                    uploaded_file = db.query(UploadedFile).filter(UploadedFile.id == f_uuid).first()
+                    if uploaded_file:
+                        file_name = uploaded_file.original_name
+                        file_url = f"/files/{uploaded_file.id}"
+                    else:
+                        file_name = "Uploaded File"
+                        file_url = f"/files/{file_uuid_str}"
+                except (ValueError, TypeError):
+                    file_name = str(val)
+                    file_url = None
+
+            answers.append({
+                "field_id": str(rv.field_id),
+                "field_label": field_label,
+                "field_type": field_type,
+                "value": val,
+                "file_name": file_name,
+                "file_url": file_url
+            })
+
+        results.append({
+            "submission_id": str(sub.id),
+            "response_id": sub.response_id or f"RESP-{str(sub.id)[:8].upper()}",
+            "submitted_at": sub.submitted_at.isoformat() if sub.submitted_at else None,
+            "answers": answers
+        })
+
+    return results
+

@@ -35,4 +35,4 @@ class Form(Base):
     )
 
     creator = relationship("User", back_populates="forms")
-    versions = relationship("FormVersion", back_populates="form", cascade="all, delete-orphan", passive_deletes=True)
+    versions = relationship("FormVersion", back_populates="form", cascade="all, delete-orphan", passive_deletes=True, order_by="desc(FormVersion.version_number)")

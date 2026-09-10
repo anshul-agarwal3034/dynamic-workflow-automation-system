@@ -21,6 +21,7 @@ function FormPilotXAuthApp() {
     { path: '/home', element: <HomeView setIsDeleteModalOpen={setIsDeleteModalOpen} /> },
     { path: '/forms', component: FormsListView },
     { path: '/forms/create', component: CreateFormView },
+    { path: '/forms/:id/submissions', component: SubmissionsView },
     { path: '/forms/:id', component: FormDetailView },
     { path: '/forms/:id/edit', component: FormBuilderView },
     { path: '/submissions', component: SubmissionsView },

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, func
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -10,6 +10,7 @@ class Submission(Base):
     __tablename__ = "submissions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    response_id = Column(String(30), unique=True, nullable=True, index=True)
 
     form_version_id = Column(
         UUID(as_uuid=True),

@@ -1,6 +1,6 @@
 import uuid
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class FieldOptionCreate(BaseModel):
@@ -16,8 +16,7 @@ class FieldOptionResponse(BaseModel):
     option_value: str
     display_order: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FieldCreate(BaseModel):
@@ -35,6 +34,7 @@ class FieldUpdate(BaseModel):
     placeholder: Optional[str] = None
     is_required: Optional[bool] = None
     display_order: Optional[int] = None
+    validation_config: Optional[Dict[str, Any]] = None
     options: Optional[List[FieldOptionCreate]] = None
 
 
@@ -49,8 +49,7 @@ class FieldResponse(BaseModel):
     validation_config: Optional[Dict[str, Any]] = None
     options: List[FieldOptionResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FieldReorderItem(BaseModel):

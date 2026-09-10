@@ -1,5 +1,6 @@
 const FormBuilderView = ({ id }) => {
   const [form, setForm] = React.useState(null);
+  const [fields, setFields] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
   const [actionError, setActionError] = React.useState('');
@@ -39,12 +40,28 @@ const FormBuilderView = ({ id }) => {
     is_required: false,
     max_rating: 5,
     options: [
-      { option_label: 'Option 1', option_value: 'option_1' },
-      { option_label: 'Option 2', option_value: 'option_2' }
+      { option_label: '', option_value: '' },
+      { option_label: '', option_value: '' }
     ]
   });
   const [addingField, setAddingField] = React.useState(false);
   const [fieldModalError, setFieldModalError] = React.useState('');
+
+  // Studio Tab State ('fields' | 'rules')
+  const [activeStudioTab, setActiveStudioTab] = React.useState('fields');
+  const [rules, setRules] = React.useState([]);
+  const [loadingRules, setLoadingRules] = React.useState(false);
+  const [rulesError, setRulesError] = React.useState('');
+  const [ruleSuccessMsg, setRuleSuccessMsg] = React.useState('');
+  const [newRuleData, setNewRuleData] = React.useState({
+    trigger_field_id: '',
+    operator: 'equals',
+    comparison_value: '',
+    action: 'show',
+    target_field_id: ''
+  });
+  const [savingRule, setSavingRule] = React.useState(false);
+  const [deletingRuleId, setDeletingRuleId] = React.useState(null);
   
   const [deleteFieldId, setDeleteFieldId] = React.useState(null);
   const [showArchiveModal, setShowArchiveModal] = React.useState(false);
@@ -81,12 +98,96 @@ const FormBuilderView = ({ id }) => {
       setForm(data);
       setEditTitle(data.title);
       setEditDescription(data.description || '');
+      const sortedVersions = data && data.versions && data.versions.length > 0
+        ? [...data.versions].sort((a, b) => (b.version_number || 0) - (a.version_number || 0))
+        : [];
+      const activeVer = sortedVersions[0];
+      if (activeVer && activeVer.fields) {
+        setFields([...activeVer.fields].sort((a, b) => a.display_order - b.display_order));
+      } else {
+        setFields([]);
+      }
     } catch (err) {
       setError(err.message || 'Failed to load form details.');
     } finally {
       setLoading(false);
     }
   }, [id]);
+
+  const loadRules = React.useCallback(async () => {
+    if (!id) return;
+    setLoadingRules(true);
+    setRulesError('');
+    try {
+      const data = await formsApi.getRules(id);
+      setRules(data || []);
+    } catch (err) {
+      console.error('Failed to load rules:', err);
+    } finally {
+      setLoadingRules(false);
+    }
+  }, [id]);
+
+  const handleSaveRule = async (e) => {
+    if (e) e.preventDefault();
+    setRulesError('');
+    setRuleSuccessMsg('');
+
+    if (!newRuleData.trigger_field_id) {
+      setRulesError('Please select a Trigger Field.');
+      return;
+    }
+    if (!newRuleData.target_field_id) {
+      setRulesError('Please select a Target Field.');
+      return;
+    }
+    if (newRuleData.trigger_field_id === newRuleData.target_field_id) {
+      setRulesError('Trigger and Target fields cannot be the same field.');
+      return;
+    }
+    if (newRuleData.operator !== 'is_empty' && !String(newRuleData.comparison_value || '').trim()) {
+      setRulesError('Please specify a Comparison Value for this operator.');
+      return;
+    }
+
+    setSavingRule(true);
+    try {
+      await formsApi.createRule(id, {
+        trigger_field_id: newRuleData.trigger_field_id,
+        target_field_id: newRuleData.target_field_id,
+        operator: newRuleData.operator,
+        comparison_value: newRuleData.operator === 'is_empty' ? null : String(newRuleData.comparison_value).trim(),
+        action: newRuleData.action
+      });
+      setRuleSuccessMsg('Conditional rule created successfully!');
+      setNewRuleData({
+        trigger_field_id: '',
+        operator: 'equals',
+        comparison_value: '',
+        action: 'show',
+        target_field_id: ''
+      });
+      await loadRules();
+      setTimeout(() => setRuleSuccessMsg(''), 3500);
+    } catch (err) {
+      setRulesError(err.message || 'Failed to save conditional rule.');
+    } finally {
+      setSavingRule(false);
+    }
+  };
+
+  const handleDeleteRule = async (ruleId) => {
+    setDeletingRuleId(ruleId);
+    setRulesError('');
+    try {
+      await formsApi.deleteRule(ruleId);
+      await loadRules();
+    } catch (err) {
+      setRulesError(err.message || 'Failed to delete rule.');
+    } finally {
+      setDeletingRuleId(null);
+    }
+  };
 
   React.useEffect(() => {
     const token = localStorage.getItem('auth_token');
@@ -95,10 +196,13 @@ const FormBuilderView = ({ id }) => {
       return;
     }
     loadForm();
-  }, [loadForm]);
+    loadRules();
+  }, [loadForm, loadRules]);
 
-  const activeVersion = form && form.versions && form.versions.length > 0 ? form.versions[0] : null;
-  const fields = activeVersion && activeVersion.fields ? [...activeVersion.fields].sort((a, b) => a.display_order - b.display_order) : [];
+  const sortedVersions = form && form.versions && form.versions.length > 0
+    ? [...form.versions].sort((a, b) => (b.version_number || 0) - (a.version_number || 0))
+    : [];
+  const activeVersion = sortedVersions[0] || null;
   const isArchived = form && form.status === 'archived';
 
   const fieldTypesList = [
@@ -271,11 +375,19 @@ const FormBuilderView = ({ id }) => {
     setFieldModalError('');
     setNewFieldData({
       label: '',
-      placeholder: ft.type === 'text' || ft.type === 'email' || ft.type === 'number' ? 'Enter response here...' : '',
+      placeholder: '',
       is_required: false,
       max_rating: 5,
+      validation_config: {
+        min_length: '',
+        max_length: '',
+        min_value: '',
+        max_value: '',
+        allowed_extensions: '.pdf, .png, .jpg',
+        max_size_mb: 5
+      },
       options: (ft.type === 'dropdown' || ft.type === 'checkbox' || ft.type === 'radio')
-        ? [{ option_label: 'Option 1', option_value: 'option_1' }, { option_label: 'Option 2', option_value: 'option_2' }]
+        ? [{ option_label: '', option_value: '' }, { option_label: '', option_value: '' }]
         : []
     });
     setShowAddFieldModal(true);
@@ -300,12 +412,36 @@ const FormBuilderView = ({ id }) => {
           }));
       }
 
-      let validationConfig = undefined;
-      if (selectedFieldType.type === 'rating') {
-        validationConfig = { max_rating: Number(newFieldData.max_rating) || 5 };
+      let validationConfig = {};
+      const fType = selectedFieldType.type;
+      const vc = newFieldData.validation_config || {};
+      if (fType === 'rating') {
+        validationConfig.max_rating = Number(newFieldData.max_rating) || 5;
+      } else if (fType === 'text') {
+        if (vc.min_length !== '' && vc.min_length !== null && !isNaN(Number(vc.min_length))) {
+          validationConfig.min_length = parseInt(vc.min_length, 10);
+        }
+        if (vc.max_length !== '' && vc.max_length !== null && !isNaN(Number(vc.max_length))) {
+          validationConfig.max_length = parseInt(vc.max_length, 10);
+        }
+      } else if (fType === 'number') {
+        if (vc.min_value !== '' && vc.min_value !== null && !isNaN(Number(vc.min_value))) {
+          validationConfig.min_value = Number(vc.min_value);
+        }
+        if (vc.max_value !== '' && vc.max_value !== null && !isNaN(Number(vc.max_value))) {
+          validationConfig.max_value = Number(vc.max_value);
+        }
+      } else if (fType === 'file') {
+        if (vc.allowed_extensions) {
+          const exts = String(vc.allowed_extensions).split(',').map(s => s.trim()).filter(Boolean);
+          validationConfig.allowed_extensions = exts;
+        }
+        if (vc.max_size_mb !== '' && vc.max_size_mb !== null && !isNaN(Number(vc.max_size_mb))) {
+          validationConfig.max_size_mb = Number(vc.max_size_mb);
+        }
       }
 
-      await formsApi.addField(form.id, {
+      const createdField = await formsApi.addField(form.id, {
         label: newFieldData.label.trim(),
         field_type: selectedFieldType.type,
         placeholder: newFieldData.placeholder.trim() || undefined,
@@ -315,6 +451,11 @@ const FormBuilderView = ({ id }) => {
         validation_config: validationConfig
       });
 
+      if (createdField) {
+        setFields(prev => [...prev, createdField]);
+      }
+      setActionError('');
+      setFieldModalError('');
       setShowAddFieldModal(false);
       await loadForm();
     } catch (err) {
@@ -339,7 +480,7 @@ const FormBuilderView = ({ id }) => {
       setForm(updated);
       setIsEditingHeader(false);
     } catch (err) {
-      setActionError(err.message || 'Failed to update form header.');
+      setActionError(err.message || 'Failed to update form metadata.');
     } finally {
       setSavingHeader(false);
     }
@@ -347,10 +488,28 @@ const FormBuilderView = ({ id }) => {
 
   const handleStartEditField = (field) => {
     setEditingFieldId(field.id);
+    const vc = field.validation_config || {};
+    let allowedExtStr = '.pdf, .png, .jpg';
+    if (vc.allowed_extensions) {
+      if (Array.isArray(vc.allowed_extensions)) {
+        allowedExtStr = vc.allowed_extensions.join(', ');
+      } else {
+        allowedExtStr = String(vc.allowed_extensions);
+      }
+    }
     setEditFieldState({
       label: field.label,
       placeholder: field.placeholder || '',
       is_required: field.is_required,
+      field_type: field.field_type,
+      validation_config: {
+        min_length: vc.min_length !== undefined && vc.min_length !== null ? vc.min_length : '',
+        max_length: vc.max_length !== undefined && vc.max_length !== null ? vc.max_length : '',
+        min_value: vc.min_value !== undefined && vc.min_value !== null ? vc.min_value : '',
+        max_value: vc.max_value !== undefined && vc.max_value !== null ? vc.max_value : '',
+        allowed_extensions: allowedExtStr,
+        max_size_mb: vc.max_size_mb !== undefined && vc.max_size_mb !== null ? vc.max_size_mb : 5
+      },
       options: field.options && field.options.length > 0
         ? field.options.map(o => ({ option_label: o.option_label, option_value: o.option_value }))
         : [{ option_label: '', option_value: '' }]
@@ -375,14 +534,46 @@ const FormBuilderView = ({ id }) => {
             }))
         : undefined;
 
-      await formsApi.updateField(fieldId, {
+      let validationConfig = {};
+      const fType = editFieldState.field_type;
+      const vc = editFieldState.validation_config || {};
+      if (fType === 'text') {
+        if (vc.min_length !== '' && vc.min_length !== null && !isNaN(Number(vc.min_length))) {
+          validationConfig.min_length = parseInt(vc.min_length, 10);
+        }
+        if (vc.max_length !== '' && vc.max_length !== null && !isNaN(Number(vc.max_length))) {
+          validationConfig.max_length = parseInt(vc.max_length, 10);
+        }
+      } else if (fType === 'number') {
+        if (vc.min_value !== '' && vc.min_value !== null && !isNaN(Number(vc.min_value))) {
+          validationConfig.min_value = Number(vc.min_value);
+        }
+        if (vc.max_value !== '' && vc.max_value !== null && !isNaN(Number(vc.max_value))) {
+          validationConfig.max_value = Number(vc.max_value);
+        }
+      } else if (fType === 'file') {
+        if (vc.allowed_extensions) {
+          const exts = String(vc.allowed_extensions).split(',').map(s => s.trim()).filter(Boolean);
+          validationConfig.allowed_extensions = exts;
+        }
+        if (vc.max_size_mb !== '' && vc.max_size_mb !== null && !isNaN(Number(vc.max_size_mb))) {
+          validationConfig.max_size_mb = Number(vc.max_size_mb);
+        }
+      }
+
+      const updatedField = await formsApi.updateField(fieldId, {
         label: editFieldState.label.trim(),
         placeholder: editFieldState.placeholder.trim() || undefined,
         is_required: editFieldState.is_required,
-        options: parsedOptions
+        options: parsedOptions,
+        validation_config: validationConfig
       });
 
+      if (updatedField) {
+        setFields(prev => prev.map(f => f.id === fieldId ? updatedField : f));
+      }
       setEditingFieldId(null);
+      setActionError('');
       await loadForm();
     } catch (err) {
       setActionError(err.message || 'Failed to update question details.');
@@ -398,6 +589,8 @@ const FormBuilderView = ({ id }) => {
     setActionError('');
     try {
       await formsApi.deleteField(targetFieldId);
+      setFields(prev => prev.filter(f => f.id !== targetFieldId));
+      setActionError('');
       await loadForm();
     } catch (err) {
       const errorMsg = err.response?.data?.detail || err.message || 'Failed to delete question.';
@@ -413,6 +606,8 @@ const FormBuilderView = ({ id }) => {
     const temp = reorderedList[index];
     reorderedList[index] = reorderedList[targetIndex];
     reorderedList[targetIndex] = temp;
+
+    setFields(reorderedList);
 
     const items = reorderedList.map((f, idx) => ({
       field_id: f.id,
@@ -441,8 +636,16 @@ const FormBuilderView = ({ id }) => {
         setPublishedShareUrl(linkData.share_url);
       } catch (linkErr) {
         if (published.share_slug) {
-          setPublishedShareUrl(`http://127.0.0.1:8000/pages/react-app.html#/public/forms/${published.share_slug}`);
+          setPublishedShareUrl(`http://127.0.0.1:8000/app/public/index.html#/public/forms/${published.share_slug}`);
         }
+      }
+
+      // Immediately refresh version history
+      try {
+        const versions = await formsApi.getFormVersions(published.id);
+        setVersionsList(versions);
+      } catch (vErr) {
+        console.error('Failed to refresh versions:', vErr);
       }
 
       setCopiedPublishLink(false);
@@ -865,279 +1068,723 @@ const FormBuilderView = ({ id }) => {
           {/* Center Canvas: Interactive Question List */}
           <div className={`${isArchived ? 'lg:col-span-12' : 'lg:col-span-8'} space-y-4`}>
             <div className="bg-surface border border-ash-border rounded-2xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-ash-border">
-                <h3 className="font-bold text-sm text-charcoal-dark flex items-center gap-2">
-                  <span>📄</span> Form Canvas Questions ({fields.length})
-                </h3>
-                <span className="text-[11px] text-secondary">Click ✏️ Edit on any question card to customize inline</span>
+              <div className="flex items-center justify-between mb-5 pb-3 border-b border-ash-border flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveStudioTab('fields')}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      activeStudioTab === 'fields'
+                        ? 'bg-charcoal-dark text-on-primary shadow-sm'
+                        : 'bg-silver-container/60 hover:bg-silver-container text-secondary'
+                    }`}
+                  >
+                    <span>📄</span> Questions ({fields.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveStudioTab('rules')}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      activeStudioTab === 'rules'
+                        ? 'bg-charcoal-dark text-on-primary shadow-sm'
+                        : 'bg-silver-container/60 hover:bg-silver-container text-secondary'
+                    }`}
+                  >
+                    <span>🔀</span> Conditional Logic ({rules.length})
+                  </button>
+                </div>
+                <span className="text-[11px] text-secondary">
+                  {activeStudioTab === 'fields'
+                    ? 'Click any card to edit question details'
+                    : 'Show, hide, or require questions dynamically'}
+                </span>
               </div>
 
-              {fields.length === 0 ? (
-                <div className="p-12 text-center bg-silver-container/30 border border-dashed border-ash-border rounded-2xl space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-silver-container text-secondary flex items-center justify-center text-xl mx-auto border border-ash-border">
-                    ✍️
-                  </div>
-                  <p className="text-xs font-bold text-charcoal-dark">Form Canvas is Empty</p>
-                  <p className="text-[11px] text-secondary">Select a field type from the left palette or use ⚡ 1-Click Templates to populate questions.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {fields.map((field, idx) => {
-                    const isEditing = editingFieldId === field.id;
+              {/* Tab 1: Form Questions Canvas */}
+              {activeStudioTab === 'fields' && (
+                <>
+                  {fields.length === 0 ? (
+                    <div className="p-12 text-center bg-silver-container/30 border border-dashed border-ash-border rounded-2xl space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-silver-container text-secondary flex items-center justify-center text-xl mx-auto border border-ash-border">
+                        ✍️
+                      </div>
+                      <p className="text-xs font-bold text-charcoal-dark">Form Canvas is Empty</p>
+                      <p className="text-[11px] text-secondary">Select a field type from the left palette or use ⚡ 1-Click Templates to populate questions.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {fields.map((field, idx) => {
+                        const isEditing = editingFieldId === field.id;
 
-                    return (
-                      <div
-                        key={field.id}
-                        className={`p-5 border rounded-2xl transition-all shadow-sm flex flex-col gap-4 ${
-                          isEditing ? 'bg-surface border-charcoal-dark ring-2 ring-silver-container' : 'bg-surface border-ash-border hover:border-ash-border'
-                        }`}
-                      >
-                        {/* Question Card Top Action Bar */}
-                        <div className="flex items-center justify-between gap-2 border-b border-ash-border pb-3">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-charcoal-dark">{idx + 1}. {field.label}</span>
-                            {field.is_required && (
-                              <span className="text-[10px] font-bold text-error bg-error-container/40 px-2 py-0.5 rounded border border-error/20">
-                                Required
-                              </span>
-                            )}
-                            <span className="text-[10px] font-semibold text-secondary bg-silver-container px-2 py-0.5 rounded-full uppercase border border-ash-border">
-                              {field.field_type}
-                            </span>
-                          </div>
+                        return (
+                          <div
+                            key={field.id}
+                            onClick={() => {
+                              if (!isEditing && !isArchived) {
+                                handleStartEditField(field);
+                              }
+                            }}
+                            className={`p-5 border rounded-2xl transition-all shadow-sm flex flex-col gap-4 cursor-pointer ${
+                              isEditing
+                                ? 'bg-surface border-charcoal-dark ring-2 ring-silver-container'
+                                : 'bg-surface border-ash-border hover:border-charcoal-dark/40 hover:shadow-md'
+                            }`}
+                          >
+                            {/* Question Card Top Action Bar */}
+                            <div className="flex items-center justify-between gap-2 border-b border-ash-border pb-3">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-charcoal-dark">{idx + 1}. {field.label}</span>
+                                {field.is_required && (
+                                  <span className="text-[10px] font-bold text-error bg-error-container/40 px-2 py-0.5 rounded border border-error/20">
+                                    Required
+                                  </span>
+                                )}
+                                <span className="text-[10px] font-semibold text-secondary bg-silver-container px-2 py-0.5 rounded-full uppercase border border-ash-border">
+                                  {field.field_type}
+                                </span>
+                              </div>
 
-                          {!isArchived && (
-                            <div className="flex items-center gap-2">
-                              {/* Reorder Arrows */}
-                              <button
-                                onClick={() => handleMoveField(idx, 'up')}
-                                disabled={idx === 0}
-                                title="Move Up"
-                                className="w-6 h-6 rounded-md bg-silver-container border border-ash-border text-xs text-charcoal-dark hover:bg-ash-border disabled:opacity-30 flex items-center justify-center font-bold"
-                              >
-                                ▲
-                              </button>
-                              <button
-                                onClick={() => handleMoveField(idx, 'down')}
-                                disabled={idx === fields.length - 1}
-                                title="Move Down"
-                                className="w-6 h-6 rounded-md bg-silver-container border border-ash-border text-xs text-charcoal-dark hover:bg-ash-border disabled:opacity-30 flex items-center justify-center font-bold"
-                              >
-                                ▼
-                              </button>
-
-                              {/* Edit Toggle */}
-                              <button
-                                onClick={() => isEditing ? setEditingFieldId(null) : handleStartEditField(field)}
-                                className="px-3 py-1 text-xs font-bold text-electric-indigo bg-silver-container hover:bg-ash-border rounded-lg transition-colors"
-                              >
-                                {isEditing ? 'Close' : '✏️ Edit'}
-                              </button>
-
-                              {/* Delete Action */}
-                              <button
-                                onClick={() => setDeleteFieldId(field.id)}
-                                className="px-2.5 py-1 text-xs font-bold text-error hover:bg-error-container/40 rounded-lg transition-colors"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* In-Place Question Editor Form */}
-                        {isEditing ? (
-                          <div className="space-y-4 pt-1 bg-silver-container/30 p-4 rounded-xl border border-ash-border">
-                            <div>
-                              <label className="block text-xs font-bold text-charcoal-dark mb-1">
-                                Question Label <span className="text-error">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={editFieldState.label}
-                                onChange={(e) => setEditFieldState({ ...editFieldState, label: e.target.value })}
-                                className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-bold focus:outline-none focus:border-charcoal-dark"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-bold text-charcoal-dark mb-1">Placeholder & Help Text</label>
-                              <input
-                                type="text"
-                                value={editFieldState.placeholder}
-                                onChange={(e) => setEditFieldState({ ...editFieldState, placeholder: e.target.value })}
-                                className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark"
-                              />
-                            </div>
-
-                            <div className="flex items-center gap-2.5 pt-1">
-                              <input
-                                type="checkbox"
-                                id={`req_${field.id}`}
-                                checked={editFieldState.is_required}
-                                onChange={(e) => setEditFieldState({ ...editFieldState, is_required: e.target.checked })}
-                                className="w-4 h-4 text-charcoal-dark border-ash-border rounded"
-                              />
-                              <label htmlFor={`req_${field.id}`} className="text-xs font-bold text-charcoal-dark cursor-pointer">
-                                Required Toggle Switch
-                              </label>
-                            </div>
-
-                            {/* Dropdown & Checkbox Choices Editor */}
-                            {(field.field_type === 'dropdown' || field.field_type === 'checkbox') && (
-                              <div className="pt-3 border-t border-ash-border space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <label className="block text-xs font-bold text-charcoal-dark">
-                                    Choices Options Editor
-                                  </label>
+                              {!isArchived && (
+                                <div className="flex items-center gap-2">
+                                  {/* Reorder Arrows */}
                                   <button
-                                    type="button"
-                                    onClick={() => setEditFieldState({
-                                      ...editFieldState,
-                                      options: [...editFieldState.options, { option_label: '', option_value: '' }]
-                                    })}
-                                    className="text-[11px] font-bold text-electric-indigo hover:underline"
+                                    onClick={(e) => { e.stopPropagation(); handleMoveField(idx, 'up'); }}
+                                    disabled={idx === 0}
+                                    title="Move Up"
+                                    className="w-6 h-6 rounded-md bg-silver-container border border-ash-border text-xs text-charcoal-dark hover:bg-ash-border disabled:opacity-30 flex items-center justify-center font-bold"
                                   >
-                                    + Add Choice
+                                    ▲
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleMoveField(idx, 'down'); }}
+                                    disabled={idx === fields.length - 1}
+                                    title="Move Down"
+                                    className="w-6 h-6 rounded-md bg-silver-container border border-ash-border text-xs text-charcoal-dark hover:bg-ash-border disabled:opacity-30 flex items-center justify-center font-bold"
+                                  >
+                                    ▼
+                                  </button>
+
+                                  {/* Edit Toggle */}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); isEditing ? setEditingFieldId(null) : handleStartEditField(field); }}
+                                    className="px-3 py-1 text-xs font-bold text-electric-indigo bg-silver-container hover:bg-ash-border rounded-lg transition-colors"
+                                  >
+                                    {isEditing ? 'Close' : '✏️ Edit'}
+                                  </button>
+
+                                  {/* Delete Action */}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setDeleteFieldId(field.id); }}
+                                    className="px-2.5 py-1 text-xs font-bold text-error hover:bg-error-container/40 rounded-lg transition-colors"
+                                  >
+                                    Delete
                                   </button>
                                 </div>
+                              )}
+                            </div>
 
-                                {editFieldState.options.map((opt, oIdx) => (
-                                  <div key={oIdx} className="flex items-center gap-2">
-                                    <input
-                                      type="text"
-                                      placeholder={`Option ${oIdx + 1}`}
-                                      value={opt.option_label}
-                                      onChange={(e) => {
-                                        const updatedOpts = [...editFieldState.options];
-                                        updatedOpts[oIdx].option_label = e.target.value;
-                                        updatedOpts[oIdx].option_value = e.target.value.toLowerCase().replace(/\s+/g, '_');
-                                        setEditFieldState({ ...editFieldState, options: updatedOpts });
-                                      }}
-                                      className="flex-1 h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
-                                    />
-                                    {editFieldState.options.length > 1 && (
+                            {/* In-Place Question Editor Form */}
+                            {isEditing ? (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="space-y-4 pt-1 bg-silver-container/30 p-4 rounded-xl border border-ash-border cursor-default"
+                              >
+                                <div>
+                                  <label className="block text-xs font-bold text-charcoal-dark mb-1">
+                                    Question Label <span className="text-error">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={editFieldState.label}
+                                    onChange={(e) => setEditFieldState({ ...editFieldState, label: e.target.value })}
+                                    className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-bold focus:outline-none focus:border-charcoal-dark"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-bold text-charcoal-dark mb-1">Placeholder & Help Text</label>
+                                  <input
+                                    type="text"
+                                    placeholder="e.g. Enter response here..."
+                                    value={editFieldState.placeholder}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => setEditFieldState({ ...editFieldState, placeholder: e.target.value })}
+                                    className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark"
+                                  />
+                                </div>
+
+                                <div className="flex items-center gap-2.5 pt-1">
+                                  <input
+                                    type="checkbox"
+                                    id={`req_${field.id}`}
+                                    checked={editFieldState.is_required}
+                                    onChange={(e) => setEditFieldState({ ...editFieldState, is_required: e.target.checked })}
+                                    className="w-4 h-4 text-charcoal-dark border-ash-border rounded"
+                                  />
+                                  <label htmlFor={`req_${field.id}`} className="text-xs font-bold text-charcoal-dark cursor-pointer">
+                                    Required Toggle Switch
+                                  </label>
+                                </div>
+
+                                {/* Dropdown & Checkbox Choices Editor */}
+                                {(field.field_type === 'dropdown' || field.field_type === 'checkbox') && (
+                                  <div className="pt-3 border-t border-ash-border space-y-3">
+                                    <div className="flex items-center justify-between">
+                                      <label className="block text-xs font-bold text-charcoal-dark">
+                                        Choices Options Editor
+                                      </label>
                                       <button
                                         type="button"
-                                        onClick={() => {
-                                          const updatedOpts = editFieldState.options.filter((_, i) => i !== oIdx);
-                                          setEditFieldState({ ...editFieldState, options: updatedOpts });
-                                        }}
-                                        className="w-7 h-7 text-error hover:bg-error-container/40 rounded flex items-center justify-center font-bold text-xs"
+                                        onClick={() => setEditFieldState({
+                                          ...editFieldState,
+                                          options: [...editFieldState.options, { option_label: '', option_value: '' }]
+                                        })}
+                                        className="text-[11px] font-bold text-electric-indigo hover:underline"
                                       >
-                                        ✕
+                                        + Add Choice
                                       </button>
-                                    )}
+                                    </div>
+
+                                    {editFieldState.options.map((opt, oIdx) => (
+                                      <div key={oIdx} className="flex items-center gap-2">
+                                        <input
+                                          type="text"
+                                          placeholder="Enter option name..."
+                                          value={opt.option_label}
+                                          onFocus={(e) => e.target.select()}
+                                          onChange={(e) => {
+                                            const updatedOpts = [...editFieldState.options];
+                                            updatedOpts[oIdx].option_label = e.target.value;
+                                            updatedOpts[oIdx].option_value = e.target.value.toLowerCase().replace(/\s+/g, '_');
+                                            setEditFieldState({ ...editFieldState, options: updatedOpts });
+                                          }}
+                                          className="flex-1 h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                        />
+                                        {editFieldState.options.length > 1 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const updatedOpts = editFieldState.options.filter((_, i) => i !== oIdx);
+                                              setEditFieldState({ ...editFieldState, options: updatedOpts });
+                                            }}
+                                            className="w-7 h-7 text-error hover:bg-error-container/40 rounded flex items-center justify-center font-bold text-xs"
+                                          >
+                                            ✕
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
+                                )}
+
+                                {/* Validation Constraints for Text */}
+                                {field.field_type === 'text' && (
+                                  <div className="pt-3 border-t border-ash-border space-y-2">
+                                    <label className="block text-xs font-bold text-charcoal-dark">
+                                      Validation Constraints (Length)
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Min Length</label>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          placeholder="e.g. 0"
+                                          value={editFieldState.validation_config?.min_length ?? ''}
+                                          onChange={(e) => setEditFieldState({
+                                            ...editFieldState,
+                                            validation_config: { ...editFieldState.validation_config, min_length: e.target.value }
+                                          })}
+                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Max Length</label>
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          placeholder="e.g. 255"
+                                          value={editFieldState.validation_config?.max_length ?? ''}
+                                          onChange={(e) => setEditFieldState({
+                                            ...editFieldState,
+                                            validation_config: { ...editFieldState.validation_config, max_length: e.target.value }
+                                          })}
+                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Validation Constraints for Number */}
+                                {field.field_type === 'number' && (
+                                  <div className="pt-3 border-t border-ash-border space-y-2">
+                                    <label className="block text-xs font-bold text-charcoal-dark">
+                                      Validation Constraints (Range)
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Min Value</label>
+                                        <input
+                                          type="number"
+                                          placeholder="e.g. 0"
+                                          value={editFieldState.validation_config?.min_value ?? ''}
+                                          onChange={(e) => setEditFieldState({
+                                            ...editFieldState,
+                                            validation_config: { ...editFieldState.validation_config, min_value: e.target.value }
+                                          })}
+                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Max Value</label>
+                                        <input
+                                          type="number"
+                                          placeholder="e.g. 100"
+                                          value={editFieldState.validation_config?.max_value ?? ''}
+                                          onChange={(e) => setEditFieldState({
+                                            ...editFieldState,
+                                            validation_config: { ...editFieldState.validation_config, max_value: e.target.value }
+                                          })}
+                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Validation Constraints for File */}
+                                {field.field_type === 'file' && (
+                                  <div className="pt-3 border-t border-ash-border space-y-2">
+                                    <label className="block text-xs font-bold text-charcoal-dark">
+                                      Validation Constraints (File Upload)
+                                    </label>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Allowed Extensions (comma-separated)</label>
+                                        <input
+                                          type="text"
+                                          placeholder=".pdf, .png, .jpg"
+                                          value={editFieldState.validation_config?.allowed_extensions ?? ''}
+                                          onChange={(e) => setEditFieldState({
+                                            ...editFieldState,
+                                            validation_config: { ...editFieldState.validation_config, allowed_extensions: e.target.value }
+                                          })}
+                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark font-mono"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Max Size (MB)</label>
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          max="50"
+                                          placeholder="5"
+                                          value={editFieldState.validation_config?.max_size_mb ?? ''}
+                                          onChange={(e) => setEditFieldState({
+                                            ...editFieldState,
+                                            validation_config: { ...editFieldState.validation_config, max_size_mb: e.target.value }
+                                          })}
+                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="flex items-center justify-end gap-2 pt-2 border-t border-ash-border">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingFieldId(null)}
+                                    className="px-3.5 py-1.5 bg-silver-container text-primary text-xs font-semibold rounded-xl"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveFieldEdit(field.id)}
+                                    disabled={savingField}
+                                    className="px-4 py-1.5 bg-charcoal-dark text-on-primary text-xs font-bold rounded-xl shadow-sm disabled:opacity-50"
+                                  >
+                                    {savingField ? 'Saving...' : 'Save Changes'}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              /* Preview-Only Canvas Inputs (pointer-events-none, disabled, readOnly) */
+                              <div className="space-y-2 pointer-events-none select-none cursor-default">
+                                {field.field_type === 'text' && (
+                                  <input
+                                    type="text"
+                                    disabled
+                                    readOnly
+                                    placeholder={field.placeholder || 'Enter text response...'}
+                                    className="w-full h-10 px-3.5 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary transition-all"
+                                  />
+                                )}
+
+                                {field.field_type === 'email' && (
+                                  <input
+                                    type="email"
+                                    disabled
+                                    readOnly
+                                    placeholder={field.placeholder || 'name@company.com'}
+                                    className="w-full h-10 px-3.5 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary transition-all"
+                                  />
+                                )}
+
+                                {field.field_type === 'number' && (
+                                  <input
+                                    type="number"
+                                    disabled
+                                    readOnly
+                                    placeholder={field.placeholder || 'e.g. 10'}
+                                    className="w-full h-10 px-3.5 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary transition-all"
+                                  />
+                                )}
+
+                                {field.field_type === 'date' && (
+                                  <input
+                                    type="date"
+                                    disabled
+                                    readOnly
+                                    className="w-full h-10 px-3.5 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary transition-all"
+                                  />
+                                )}
+
+                                {/* Dropdown Preview */}
+                                {field.field_type === 'dropdown' && (
+                                  <select
+                                    disabled
+                                    className="w-full h-10 px-3.5 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary font-semibold transition-all"
+                                  >
+                                    <option value="">Select option...</option>
+                                    {field.options && field.options.map(opt => (
+                                      <option key={opt.id || opt.option_value} value={opt.option_value}>
+                                        {opt.option_label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+
+                                {/* Checkbox List Preview */}
+                                {field.field_type === 'checkbox' && (
+                                  <div className="flex flex-wrap gap-2 pt-1">
+                                    {field.options && field.options.map(opt => (
+                                      <label
+                                        key={opt.id || opt.option_value}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-silver-container/40 border border-ash-border rounded-xl text-xs font-semibold text-secondary transition-colors"
+                                      >
+                                        <input type="checkbox" disabled className="w-3.5 h-3.5 text-secondary rounded border-ash-border" />
+                                        <span>{opt.option_label}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {field.field_type === 'rating' && (
+                                  <div className="flex gap-2 pt-1">
+                                    {[1, 2, 3, 4, 5].map(s => (
+                                      <button
+                                        key={s}
+                                        type="button"
+                                        disabled
+                                        className="px-3 py-1.5 bg-silver-container/40 border border-ash-border rounded-xl text-xs text-secondary font-bold transition-all"
+                                      >
+                                        ★ {s}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {field.field_type === 'file' && (
+                                  <div className="p-4 bg-silver-container/20 border border-dashed border-ash-border rounded-xl text-xs text-secondary text-center">
+                                    📎 File attachment dropzone
+                                  </div>
+                                )}
                               </div>
                             )}
-
-                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-ash-border">
-                              <button
-                                type="button"
-                                onClick={() => setEditingFieldId(null)}
-                                className="px-3.5 py-1.5 bg-silver-container text-primary text-xs font-semibold rounded-xl"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleSaveFieldEdit(field.id)}
-                                disabled={savingField}
-                                className="px-4 py-1.5 bg-charcoal-dark text-on-primary text-xs font-bold rounded-xl shadow-sm disabled:opacity-50"
-                              >
-                                {savingField ? 'Saving...' : 'Save Changes'}
-                              </button>
-                            </div>
                           </div>
-                        ) : (
-                          /* Interactive Canvas Preview Mode (No disabled cursor-not-allowed) */
-                          <div className="space-y-2">
-                            {field.field_type === 'text' && (
-                              <input
-                                type="text"
-                                placeholder={field.placeholder || 'Enter text response...'}
-                                className="w-full h-10 px-3.5 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark focus:ring-2 focus:ring-silver-container transition-all"
-                              />
-                            )}
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
 
-                            {field.field_type === 'email' && (
-                              <input
-                                type="email"
-                                placeholder={field.placeholder || 'name@company.com'}
-                                className="w-full h-10 px-3.5 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark focus:ring-2 focus:ring-silver-container transition-all"
-                              />
-                            )}
+              {/* Tab 2: Conditional Logic Rules Studio */}
+              {activeStudioTab === 'rules' && (
+                <div className="space-y-6">
+                  {/* Create New Rule Form Card */}
+                  {!isArchived && (
+                    <div className="p-5 bg-silver-container/20 border border-ash-border rounded-2xl space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-xs text-charcoal-dark uppercase tracking-wider flex items-center gap-1.5">
+                          <span>➕</span> Add New Conditional Rule
+                        </h4>
+                        <span className="text-[10px] text-secondary">Dynamically branch your form flow</span>
+                      </div>
 
-                            {field.field_type === 'number' && (
-                              <input
-                                type="number"
-                                placeholder={field.placeholder || 'e.g. 10'}
-                                className="w-full h-10 px-3.5 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark focus:ring-2 focus:ring-silver-container transition-all"
-                              />
-                            )}
-
-                            {field.field_type === 'date' && (
-                              <input
-                                type="date"
-                                className="w-full h-10 px-3.5 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark focus:ring-2 focus:ring-silver-container transition-all cursor-pointer"
-                              />
-                            )}
-
-                            {/* Interactive Dropdown Preview */}
-                            {field.field_type === 'dropdown' && (
+                      {fields.length < 2 ? (
+                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-600 dark:text-amber-400">
+                          ⚠️ You need at least 2 questions in your form to configure conditional rules (one trigger and one target question).
+                        </div>
+                      ) : (
+                        <form onSubmit={handleSaveRule} className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {/* Trigger Question */}
+                            <div>
+                              <label className="block text-xs font-bold text-charcoal-dark mb-1">
+                                If this question... <span className="text-error">*</span>
+                              </label>
                               <select
-                                className="w-full h-10 px-3.5 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-semibold focus:outline-none focus:border-charcoal-dark focus:ring-2 focus:ring-silver-container transition-all cursor-pointer"
+                                value={newRuleData.trigger_field_id}
+                                onChange={(e) => setNewRuleData({
+                                  ...newRuleData,
+                                  trigger_field_id: e.target.value,
+                                  comparison_value: ''
+                                })}
+                                className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark cursor-pointer"
                               >
-                                <option value="">Select option...</option>
-                                {field.options && field.options.map(opt => (
-                                  <option key={opt.id || opt.option_value} value={opt.option_value}>
-                                    {opt.option_label}
+                                <option value="">Select trigger question...</option>
+                                {fields.map((f, idx) => (
+                                  <option key={f.id} value={f.id}>
+                                    {idx + 1}. {f.label} ({f.field_type})
                                   </option>
                                 ))}
                               </select>
-                            )}
+                            </div>
 
-                            {/* Interactive Checkbox List Preview */}
-                            {field.field_type === 'checkbox' && (
-                              <div className="flex flex-wrap gap-2 pt-1">
-                                {field.options && field.options.map(opt => (
-                                  <label
-                                    key={opt.id || opt.option_value}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-silver-container/60 hover:bg-silver-container border border-ash-border rounded-xl text-xs font-semibold text-charcoal-dark cursor-pointer transition-colors"
-                                  >
-                                    <input type="checkbox" className="w-3.5 h-3.5 text-charcoal-dark rounded border-ash-border" />
-                                    <span>{opt.option_label}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            )}
+                            {/* Operator */}
+                            <div>
+                              <label className="block text-xs font-bold text-charcoal-dark mb-1">
+                                Operator <span className="text-error">*</span>
+                              </label>
+                              <select
+                                value={newRuleData.operator}
+                                onChange={(e) => setNewRuleData({ ...newRuleData, operator: e.target.value })}
+                                className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark cursor-pointer"
+                              >
+                                <option value="equals">Equals (==)</option>
+                                <option value="not_equals">Not Equals (!=)</option>
+                                <option value="contains">Contains</option>
+                                <option value="greater_than">Greater Than (&gt;)</option>
+                                <option value="is_empty">Is Empty</option>
+                              </select>
+                            </div>
 
-                            {field.field_type === 'rating' && (
-                              <div className="flex gap-2 pt-1">
-                                {[1, 2, 3, 4, 5].map(s => (
-                                  <button
-                                    key={s}
-                                    type="button"
-                                    className="px-3 py-1.5 bg-silver-container hover:bg-ash-border border border-ash-border rounded-xl text-xs text-warm-amber font-bold transition-all cursor-pointer"
-                                  >
-                                    ★ {s}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-
-                            {field.field_type === 'file' && (
-                              <div className="p-4 bg-silver-container/30 border border-dashed border-ash-border rounded-xl text-xs text-secondary text-center cursor-pointer hover:bg-silver-container/60 transition-colors">
-                                📎 Drag and drop file or click to browse attachment
-                              </div>
-                            )}
+                            {/* Comparison Value */}
+                            <div>
+                              <label className="block text-xs font-bold text-charcoal-dark mb-1">
+                                Comparison Value {newRuleData.operator !== 'is_empty' && <span className="text-error">*</span>}
+                              </label>
+                              {newRuleData.operator === 'is_empty' ? (
+                                <div className="h-9 px-3 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary flex items-center italic">
+                                  Not needed for "Is Empty"
+                                </div>
+                              ) : (() => {
+                                const trigField = fields.find(f => f.id === newRuleData.trigger_field_id);
+                                if (trigField && trigField.options && trigField.options.length > 0) {
+                                  return (
+                                    <select
+                                      value={newRuleData.comparison_value}
+                                      onChange={(e) => setNewRuleData({ ...newRuleData, comparison_value: e.target.value })}
+                                      className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark cursor-pointer"
+                                    >
+                                      <option value="">Select option value...</option>
+                                      {trigField.options.map(opt => (
+                                        <option key={opt.id || opt.option_value} value={opt.option_value}>
+                                          {opt.option_label} ({opt.option_value})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  );
+                                }
+                                return (
+                                  <input
+                                    type={trigField && trigField.field_type === 'number' ? 'number' : 'text'}
+                                    value={newRuleData.comparison_value}
+                                    onChange={(e) => setNewRuleData({ ...newRuleData, comparison_value: e.target.value })}
+                                    placeholder="Enter expected value..."
+                                    className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark"
+                                  />
+                                );
+                              })()}
+                            </div>
                           </div>
-                        )}
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                            {/* Action */}
+                            <div>
+                              <label className="block text-xs font-bold text-charcoal-dark mb-1">
+                                Then Action <span className="text-error">*</span>
+                              </label>
+                              <select
+                                value={newRuleData.action}
+                                onChange={(e) => setNewRuleData({ ...newRuleData, action: e.target.value })}
+                                className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark cursor-pointer"
+                              >
+                                <option value="show">Show question</option>
+                                <option value="hide">Hide question</option>
+                                <option value="show_and_require">Show and make question required</option>
+                                <option value="require">Make question required</option>
+                              </select>
+                            </div>
+
+                            {/* Target Question */}
+                            <div>
+                              <label className="block text-xs font-bold text-charcoal-dark mb-1">
+                                Target Question <span className="text-error">*</span>
+                              </label>
+                              <select
+                                value={newRuleData.target_field_id}
+                                onChange={(e) => setNewRuleData({ ...newRuleData, target_field_id: e.target.value })}
+                                className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark cursor-pointer"
+                              >
+                                <option value="">Select target question...</option>
+                                {fields
+                                  .filter(f => f.id !== newRuleData.trigger_field_id)
+                                  .map((f, idx) => (
+                                    <option key={f.id} value={f.id}>
+                                      {f.label} ({f.field_type})
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Rule error/success inline alerts */}
+                          {rulesError && (
+                            <div className="p-3 bg-error-container/40 border border-error/20 rounded-xl text-xs text-error font-medium">
+                              {rulesError}
+                            </div>
+                          )}
+
+                          {ruleSuccessMsg && (
+                            <div className="p-3 bg-mint-emerald/10 border border-mint-emerald/30 rounded-xl text-xs text-mint-emerald font-semibold">
+                              {ruleSuccessMsg}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-end pt-2">
+                            <button
+                              type="submit"
+                              disabled={savingRule || !newRuleData.trigger_field_id || !newRuleData.target_field_id}
+                              className="px-4 py-2 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl shadow-sm disabled:opacity-40 transition-all flex items-center gap-1.5"
+                            >
+                              <span>➕</span> {savingRule ? 'Saving Rule...' : 'Save Conditional Rule'}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Configured Rules List */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-xs text-charcoal-dark uppercase tracking-wider flex items-center gap-2">
+                        <span>📜</span> Configured Conditional Rules ({rules.length})
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={loadRules}
+                        disabled={loadingRules}
+                        className="text-[11px] font-semibold text-secondary hover:text-charcoal-dark transition-colors"
+                      >
+                        {loadingRules ? 'Refreshing...' : '↻ Refresh Rules'}
+                      </button>
+                    </div>
+
+                    {loadingRules ? (
+                      <div className="p-8 text-center bg-silver-container/20 border border-ash-border rounded-xl text-xs text-secondary">
+                        Loading conditional rules...
                       </div>
-                    );
-                  })}
+                    ) : rules.length === 0 ? (
+                      <div className="p-8 text-center bg-silver-container/20 border border-dashed border-ash-border rounded-2xl space-y-2">
+                        <div className="text-2xl">🔀</div>
+                        <p className="text-xs font-bold text-charcoal-dark">No Conditional Rules Configured</p>
+                        <p className="text-[11px] text-secondary max-w-sm mx-auto">
+                          Create dynamic branching logic to show, hide, or require questions based on what respondents select.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {rules.map((rule) => {
+                          const trig = fields.find(f => f.id === rule.trigger_field_id);
+                          const targ = fields.find(f => f.id === rule.target_field_id);
+                          const trigName = trig ? trig.label : (rule.trigger_field_id ? `Field (${String(rule.trigger_field_id).slice(0, 8)}...)` : 'Unknown Field');
+                          const targName = targ ? targ.label : (rule.target_field_id ? `Field (${String(rule.target_field_id).slice(0, 8)}...)` : 'Unknown Field');
+
+                          let actionBadge = (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-mint-emerald/20 text-mint-emerald border border-mint-emerald/30">
+                              SHOW
+                            </span>
+                          );
+                          if (rule.action === 'hide') {
+                            actionBadge = (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-error-container/60 text-error border border-error/30">
+                                HIDE
+                              </span>
+                            );
+                          } else if (rule.action === 'require') {
+                            actionBadge = (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-warm-amber/20 text-warm-amber border border-warm-amber/30">
+                                REQUIRE
+                              </span>
+                            );
+                          } else if (rule.action === 'show_and_require') {
+                            actionBadge = (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-cyan-accent/20 text-cyan-accent border border-cyan-accent/30">
+                                SHOW & REQUIRE
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <div
+                              key={rule.id}
+                              className="p-4 bg-surface border border-ash-border rounded-xl shadow-sm flex items-center justify-between gap-4 hover:border-charcoal-dark/40 transition-all"
+                            >
+                              <div className="flex-1 text-xs space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-secondary text-[11px] uppercase tracking-wider">IF</span>
+                                  <span className="font-bold text-charcoal-dark bg-silver-container/60 px-2 py-0.5 rounded-lg border border-ash-border">
+                                    {trigName}
+                                  </span>
+                                  <span className="text-secondary font-mono text-[11px]">{rule.operator}</span>
+                                  {rule.operator !== 'is_empty' && (
+                                    <span className="font-bold text-primary bg-silver-container px-2 py-0.5 rounded-lg border border-ash-border">
+                                      "{rule.comparison_value}"
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                                  <span className="font-bold text-secondary text-[11px] uppercase tracking-wider">THEN</span>
+                                  {actionBadge}
+                                  <span className="font-bold text-charcoal-dark bg-silver-container/60 px-2 py-0.5 rounded-lg border border-ash-border">
+                                    {targName}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {!isArchived && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRule(rule.id)}
+                                  disabled={deletingRuleId === rule.id}
+                                  title="Delete Rule"
+                                  className="w-8 h-8 rounded-lg bg-silver-container/60 hover:bg-error-container/60 text-secondary hover:text-error border border-ash-border flex items-center justify-center text-xs transition-colors shrink-0 disabled:opacity-40"
+                                >
+                                  {deletingRuleId === rule.id ? '...' : '🗑️'}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1223,6 +1870,7 @@ const FormBuilderView = ({ id }) => {
                     type="text"
                     placeholder="e.g. Enter response here..."
                     value={newFieldData.placeholder}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => setNewFieldData({ ...newFieldData, placeholder: e.target.value })}
                     className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark"
                   />
@@ -1254,7 +1902,7 @@ const FormBuilderView = ({ id }) => {
                       type="button"
                       onClick={() => setNewFieldData({
                         ...newFieldData,
-                        options: [...newFieldData.options, { option_label: `Option ${newFieldData.options.length + 1}`, option_value: `option_${newFieldData.options.length + 1}` }]
+                        options: [...newFieldData.options, { option_label: '', option_value: '' }]
                       })}
                       className="text-xs font-bold text-electric-indigo hover:underline"
                     >
@@ -1266,8 +1914,9 @@ const FormBuilderView = ({ id }) => {
                     <div key={oIdx} className="flex items-center gap-2">
                       <input
                         type="text"
-                        placeholder={`Option ${oIdx + 1}`}
+                        placeholder="Enter option name..."
                         value={opt.option_label}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => {
                           const updatedOpts = [...newFieldData.options];
                           updatedOpts[oIdx].option_label = e.target.value;
@@ -1308,6 +1957,121 @@ const FormBuilderView = ({ id }) => {
                     <option value={5}>5 Stars (1 to 5 scale)</option>
                     <option value={10}>10 Stars (1 to 10 scale)</option>
                   </select>
+                </div>
+              )}
+
+              {/* Validation Constraints for Text */}
+              {selectedFieldType.type === 'text' && (
+                <div className="pt-3 border-t border-ash-border space-y-2">
+                  <label className="block text-xs font-bold text-charcoal-dark">
+                    Validation Constraints (Length)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-secondary font-semibold mb-1">Min Length</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="e.g. 0"
+                        value={newFieldData.validation_config?.min_length ?? ''}
+                        onChange={(e) => setNewFieldData({
+                          ...newFieldData,
+                          validation_config: { ...newFieldData.validation_config, min_length: e.target.value }
+                        })}
+                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-secondary font-semibold mb-1">Max Length</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 255"
+                        value={newFieldData.validation_config?.max_length ?? ''}
+                        onChange={(e) => setNewFieldData({
+                          ...newFieldData,
+                          validation_config: { ...newFieldData.validation_config, max_length: e.target.value }
+                        })}
+                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Validation Constraints for Number */}
+              {selectedFieldType.type === 'number' && (
+                <div className="pt-3 border-t border-ash-border space-y-2">
+                  <label className="block text-xs font-bold text-charcoal-dark">
+                    Validation Constraints (Range)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-secondary font-semibold mb-1">Min Value</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 0"
+                        value={newFieldData.validation_config?.min_value ?? ''}
+                        onChange={(e) => setNewFieldData({
+                          ...newFieldData,
+                          validation_config: { ...newFieldData.validation_config, min_value: e.target.value }
+                        })}
+                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-secondary font-semibold mb-1">Max Value</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 100"
+                        value={newFieldData.validation_config?.max_value ?? ''}
+                        onChange={(e) => setNewFieldData({
+                          ...newFieldData,
+                          validation_config: { ...newFieldData.validation_config, max_value: e.target.value }
+                        })}
+                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Validation Constraints for File */}
+              {selectedFieldType.type === 'file' && (
+                <div className="pt-3 border-t border-ash-border space-y-2">
+                  <label className="block text-xs font-bold text-charcoal-dark">
+                    Validation Constraints (File Upload)
+                  </label>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-[10px] text-secondary font-semibold mb-1">Allowed Extensions (comma-separated)</label>
+                      <input
+                        type="text"
+                        placeholder=".pdf, .png, .jpg"
+                        value={newFieldData.validation_config?.allowed_extensions ?? ''}
+                        onChange={(e) => setNewFieldData({
+                          ...newFieldData,
+                          validation_config: { ...newFieldData.validation_config, allowed_extensions: e.target.value }
+                        })}
+                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-secondary font-semibold mb-1">Max Size (MB)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        placeholder="5"
+                        value={newFieldData.validation_config?.max_size_mb ?? ''}
+                        onChange={(e) => setNewFieldData({
+                          ...newFieldData,
+                          validation_config: { ...newFieldData.validation_config, max_size_mb: e.target.value }
+                        })}
+                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -1529,7 +2293,10 @@ const FormBuilderView = ({ id }) => {
               </a>
 
               <button
-                onClick={() => setShowPublishSuccessModal(false)}
+                onClick={() => {
+                  setShowPublishSuccessModal(false);
+                  navigate('/forms');
+                }}
                 className="px-5 py-2.5 bg-silver-container hover:bg-ash-border text-primary font-bold text-xs rounded-xl transition-all"
               >
                 Done
