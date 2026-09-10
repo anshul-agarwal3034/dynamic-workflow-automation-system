@@ -2,8 +2,6 @@
 
 An enterprise-ready, dynamic form-building and workflow management platform featuring dynamic conditional rule evaluation, server-side schema validations, zero-build CDN React frontend, safe transactional persistence, and secure file streaming.
 
-**Repository:** [https://github.com/anshul-agarwal3034/dynamic-workflow-automation-system](https://github.com/anshul-agarwal3034/dynamic-workflow-automation-system)
-
 ---
 
 ## 🌟 Key Feature Highlights (Milestones 1 & 2)
