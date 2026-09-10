@@ -1,136 +1,255 @@
-# FormPilotX — Dynamic Form Engine & Lifecycle Management System
+# Dynamic Form Builder (FormPilotX)
 
-FormPilotX is a high-performance dynamic form platform built with a decoupled FastAPI backend, PostgreSQL relational storage, and a responsive React client. It supports immutable version freezing, live visual builder workflows, cascading field management, and unauthenticated public shareable links.
+An enterprise-ready, dynamic form-building and workflow management platform featuring dynamic conditional rule evaluation, server-side schema validations, zero-build CDN React frontend, safe transactional persistence, and secure file streaming.
+
+**Repository:** [https://github.com/anshul-agarwal3034/dynamic-workflow-automation-system](https://github.com/anshul-agarwal3034/dynamic-workflow-automation-system)
 
 ---
 
-## Core Capabilities Implemented (Milestone 1)
+## 🌟 Key Feature Highlights (Milestones 1 & 2)
 
 ### 🔐 Authentication & Security
-- **JWT Bearer Authentication**: Secure token-based session handling.
-- **Bcrypt Password Hashing**: Cryptographic password protection.
-- **Automated Session Initialization**: Auto-login upon registration.
-- **Route Guards & Session Purging**: Client-side authentication guards and complete local storage purging upon sign-out.
+- **JWT Bearer Token Authentication:** Secure, stateless token-based session handling with configurable expiration.
+- **Bcrypt Password Hashing:** Robust cryptographic password protection using salted bcrypt hashing.
+- **Automated Session Initialization:** Immediate auto-login upon user registration for friction-free onboarding.
+- **Client-Side Route Guards:** Centralized routing guards protecting builder, form detail, and dashboard views, with complete local storage purging upon sign-out.
 
 ### 🎨 Interactive Form Builder Studio
-- **Visual Question Canvas**: Supports text, number, email, dropdown, checkbox, date, and rating scale question types.
-- **Modal Configuration**: Dedicated field configuration dialogs before appending questions to canvas.
-- **In-Place Question Customization**: Inline field editing for labels, placeholders, requirement toggles, and choice options.
-- **Field Reordering & Single Field Deletion**: Drag-and-drop / arrow reordering and direct SQL single field deletion.
+- **Visual Question Canvas:** Interactive drag-and-drop and ordered question layout supporting 8 core question types:
+  - Text & Long Text (Textarea)
+  - Number & Rating Scale
+  - Email
+  - Dropdown, Radio, & Checkbox
+  - Date Picker
+  - File Upload
+- **Preview-Safe Canvas Controls:** Interactive inputs are rendered preview-only on the builder canvas to prevent accidental interactions during form editing.
+- **In-Place Customization & Modals:** Intuitive configuration modals and inline editing for field labels, placeholders, requiredness toggles, and choice options.
+- **Clean Default Options:** Seamless option creation that initializes empty with placeholder text or auto-selects defaults on focus for rapid typing.
 
-### 📜 Immutable Version Snapshots
-- **Publish Freezing (`POST /forms/{id}/publish`)**: Publishing freezes the active version (`is_active=True`, `published_at=now`).
-- **Automated Draft Branching**: Edits to a published form automatically clone schema details into a new draft version (`version_number + 1`).
-- **Historical Version Inspection**: View snapshot details and field schema across previous version iterations.
+### 🛡️ Field Validation Configuration
+- **Visual Validation Constraints:** Form creators can visually configure field constraints in the builder UI that automatically persist to `field.validation_config` (JSONB) in PostgreSQL:
+  - **Text / Textarea:** Minimum length (`min_length`), maximum length (`max_length`), and regular expression patterns (`regex_pattern`).
+  - **Number:** Minimum numeric value (`min_value`) and maximum numeric value (`max_value`).
+  - **File Upload:** Maximum file size in megabytes (`max_size_mb`) and allowed extension whitelists (`allowed_extensions`).
+- **Strict Server-Side Enforcement:** Validation engine (`app/services/validation_engine.py`) rigorously validates submission values against field configurations before database writes, returning informative 422 HTTP responses with field-specific errors.
 
-### 🌐 Public Access & Lifecycle Management
-- **Unauthenticated Public Links**: Respondents can access forms via unique, shareable URL slugs (`/pages/react-app.html#/public/forms/<share_slug>`).
-- **Real-Time Validation Schema**: Dynamically builds form UI and enforces validation on response submission.
-- **Full Archive Protection**: Archived forms freeze state and return `HTTP 410 Gone` on public submission attempts.
-- **Unarchive Workflow**: Restores archived forms back to active or draft state.
+### ⚡ Conditional Logic Evaluation Engine
+- **Visual Rule Builder:** Creators can configure dynamic triggers and targets directly in the Form Builder:
+  - **Operators:** `equals`, `not_equals`, `contains`, `greater_than`, `is_empty`.
+  - **Target Actions:** `show` (reveal field when condition met), `hide` (conceal field when condition met), and `require` (dynamically enforce mandatory completion).
+- **Client-Side Dependency Graph:** `PublicFormView.jsx` dynamically recalculates field visibility and requirement states in real time as respondents enter data.
+- **Dynamic Question Numbering:** Public respondent view automatically calculates and renders 1-based question numbers dynamically (`Q1`, `Q2`, `Q3`...), skipping currently hidden fields in real time as conditions change.
+- **Server-Side Submission Integrity:** `app/services/conditional_engine.py` evaluates active rules against submission payloads to reject or discard unauthorized data for hidden fields and enforce dynamically required fields.
 
-### 🗄️ Enterprise Data Management
-- **Fail-Proof Cascade Deletion**: Parameterized direct SQL deletion executing across dependent tables in strict topological order (`response_values` → `submissions` → `conditional_rules` → `field_options` → `fields` → `form_versions` → `forms`).
+### 📜 Immutable Version Snapshots & Draft Cloning
+- **Publish Freezing (`POST /forms/{id}/publish`):** Publishing freezes the active form version (`is_active=True`, `published_at=now`) and generates a persistent public slug.
+- **Automated Draft Branching:** Any edits to a published form trigger `ensure_draft_version`, which clones all fields, options, and conditional rules into a new draft version (`version_number + 1`) while safely re-mapping foreign keys.
+- **Historical Version Inspection:** Full API support to inspect version history, field schemas, and snapshots across iterations.
+- **Archive & Unarchive Lifecycle:** Complete lifecycle management allowing forms to be archived (freezing public submissions with `HTTP 410 Gone`) and unarchived back to draft or active state.
 
-### ⚡ Curated 1-Click Templates
-- Single-click loaders for *Employee Onboarding*, *Customer Feedback Survey*, and *Event Registration* with canvas replacement safeguards.
+### 💾 Safe Form Submissions & Relational Storage
+- **Transactional Submission Pipeline (`POST /public/forms/{slug}/submit`):** Atomic persistence storing respondent submissions and individual response values across `submissions` and `response_values` tables.
+- **Duration Metrics:** Accurately captures respondent start timestamp, completion timestamp, and overall completion duration in seconds.
+- **Submission Reference Confirmation:** Respondents receive an instant confirmation screen displaying their unique submission reference ID.
+
+### 📁 Secure File Storage & Streaming
+- **Controlled File Uploads (`POST /upload`):** Upload validation verifying allowed extensions, MIME types, and file size limits (default 10MB).
+- **Isolated Storage:** Uploaded files are assigned UUID filenames and stored securely within the local `./uploads/` directory.
+- **Secure File Streaming (`GET /files/{file_id}`):** Streamlined retrieval endpoint delivering files with proper `Content-Type` headers, streaming responses, and safe download attachments.
+
+### 📊 Creator Submissions Dashboard
+- **Submissions Overview (`GET /forms/{id}/submissions`):** Real-time analytics view for form creators displaying respondent submissions, duration metrics, submission timestamps, and answered values.
+- **Direct File Inspection:** Seamless integration allowing creators to directly view and download respondent-submitted files.
 
 ---
 
-## Database Architecture & Schema
+## 🏗️ Tech Stack & Architecture
 
-The database consists of 8 normalized relational entities configured on PostgreSQL:
+- **Backend:**
+  - **Language:** Python 3.14+
+  - **API Framework:** FastAPI
+  - **ORM & Database Toolkit:** SQLAlchemy 2.0
+  - **Data Validation & Serialization:** Pydantic V2 (`ConfigDict(from_attributes=True)`)
+  - **Database:** PostgreSQL (`formpilotx_db`)
+- **Frontend:**
+  - **Architecture:** Zero-build CDN architecture — no Node.js, npm, or build tools required.
+  - **Libraries:** React 18, Babel Standalone, Tailwind CSS.
+  - **Routing:** Hash-based SPA routing (`SimpleRouter.jsx`).
+- **Storage & Infrastructure:**
+  - **Local Disk Storage:** `./uploads/` directory for uploaded file payloads.
+  - **Relational Integrity:** Cascading foreign key relationships with parameterized transactional safety.
 
-| Table Name | Description | Key Relationships / Foreign Keys |
+---
+
+## 🗄️ Database Architecture & Schema
+
+The PostgreSQL database (`formpilotx_db`) is composed of 9 normalized relational entities:
+
+| Table Name | Description | Key Relationships & Foreign Keys |
 | :--- | :--- | :--- |
-| `users` | User identity & credentials | Primary key `id` (UUID), linked to `forms.created_by`. |
-| `forms` | Master form entity & status (`draft`, `published`, `archived`) | Foreign key `created_by` → `users.id`, has many `form_versions`. |
+| `users` | User accounts and cryptographic credentials | Primary key `id` (UUID), referenced by `forms.created_by`. |
+| `forms` | Master form entity, lifecycle status (`draft`, `published`, `archived`) | Foreign key `created_by` → `users.id`, has many `form_versions`. |
 | `form_versions` | Immutable schema version snapshots & version counters | Foreign key `form_id` → `forms.id`, has many `fields`, `submissions`. |
-| `fields` | Dynamic question elements with JSONB validation configs | Foreign key `form_version_id` → `form_versions.id`, has many `field_options`, `response_values`. |
+| `fields` | Dynamic question definitions with JSONB validation configs | Foreign key `form_version_id` → `form_versions.id`, has many `field_options`, `response_values`. |
 | `field_options` | Choice rows for dropdown, radio, and checkbox fields | Foreign key `field_id` → `fields.id`. |
-| `conditional_rules` | Rule entity linking trigger and target fields | Foreign keys `trigger_field_id` & `target_field_id` → `fields.id`. |
-| `submissions` | Respondent submission master with session timing metrics | Foreign key `form_version_id` → `form_versions.id`, has many `response_values`. |
+| `conditional_rules` | Logical rule entity linking trigger and target fields | Foreign keys `trigger_field_id` & `target_field_id` → `fields.id`. |
+| `submissions` | Respondent submission master record with duration metrics | Foreign key `form_version_id` → `form_versions.id`, has many `response_values`. |
 | `response_values` | Normalized field response values in JSONB format | Foreign keys `submission_id` → `submissions.id`, `field_id` → `fields.id`. |
+| `uploaded_files` | File metadata, storage paths, and content types | Primary key `id` (UUID), links stored files to fields/submissions. |
 
 ---
 
-## API Endpoints Reference Table
+## 📡 API Endpoints Reference
 
 ### 🔑 Authentication Routes
 | Method | Path | Description | Access |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/auth/signup` | Register a new user account | Public |
-| `POST` | `/auth/signin` | Authenticate user and issue JWT token | Public |
+| `POST` | `/auth/signup` | Register a new user account & auto-initialize session | Public |
+| `POST` | `/auth/signin` | Authenticate user credentials and issue JWT bearer token | Public |
 | `GET` | `/auth/me` | Fetch authenticated user profile details | Bearer Token |
 
-### 📝 Form Management Routes
+### 📝 Form Management & Versioning Routes
 | Method | Path | Description | Access |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/forms` | List all forms owned by current user | Bearer Token |
-| `POST` | `/forms` | Create a new form and initial draft version | Bearer Token |
-| `GET` | `/forms/{id}` | Retrieve form details, versions, and active fields | Bearer Token |
+| `POST` | `/forms` | Create a new form with an initial draft version | Bearer Token |
+| `GET` | `/forms/{id}` | Retrieve form details, active version, and fields | Bearer Token |
 | `PUT` | `/forms/{id}` | Update form title and description | Bearer Token |
-| `DELETE` | `/forms/{id}` | Direct cascade delete form and all child records | Bearer Token |
+| `DELETE` | `/forms/{id}` | Direct cascade deletion of form and all associated child entities | Bearer Token |
+| `POST` | `/forms/{id}/publish` | Publish active draft version & generate public share slug | Bearer Token |
+| `GET` | `/forms/{id}/versions` | List historical versions for a form | Bearer Token |
+| `GET` | `/forms/{id}/versions/{version_id}` | View detailed snapshot of a specific historical version | Bearer Token |
+| `POST` | `/forms/{id}/generate-link` | Generate or fetch shareable public URL for published form | Bearer Token |
 | `PATCH` | `/forms/{id}/archive` | Archive a form (freezes form, returns 410 on public submit) | Bearer Token |
 | `PATCH` | `/forms/{id}/unarchive` | Restore an archived form to active/draft state | Bearer Token |
-| `POST` | `/forms/{id}/publish` | Publish active draft version & generate public slug | Bearer Token |
-| `POST` | `/forms/{id}/generate-link` | Generate shareable public URL for published form | Bearer Token |
 
 ### 🛠️ Field Management Routes
 | Method | Path | Description | Access |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/forms/{id}/fields` | Add a new field to active draft version | Bearer Token |
 | `PUT` | `/fields/{id}` | Update field label, placeholder, requirement, or options | Bearer Token |
-| `DELETE` | `/fields/{id}` | Delete individual field and dependent responses/rules | Bearer Token |
-| `PATCH` | `/forms/{id}/reorder-fields` | Update display order of questions on canvas | Bearer Token |
+| `DELETE` | `/fields/{field_id}` | Delete individual field and dependent responses/rules | Bearer Token |
+| `PATCH` | `/forms/{id}/reorder-fields` | Update display order of questions on builder canvas | Bearer Token |
 
-### 🌐 Public & System Routes
+### ⚡ Conditional Rules Routes
 | Method | Path | Description | Access |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/health` | Application health and database connectivity check | Public |
+| `POST` | `/forms/{id}/rules` | Create a new conditional logic rule for a form | Bearer Token |
+| `GET` | `/forms/{id}/rules` | List all conditional rules for the form's active version | Bearer Token |
+| `PUT` | `/rules/{rule_id}` | Update an existing conditional rule's configuration | Bearer Token |
+| `DELETE` | `/rules/{rule_id}` | Delete a conditional rule | Bearer Token |
+
+### 📁 File Upload & Streaming Routes
+| Method | Path | Description | Access |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/upload` | Upload a file with size, type, and extension validation | Public |
+| `GET` | `/files/{file_id}` | Securely stream an uploaded file with inline/attachment headers | Public |
+
+### 📊 Submissions & Public Form Routes
+| Method | Path | Description | Access |
+| :--- | :--- | :--- | :--- |
 | `GET` | `/public/forms/{slug}` | Retrieve public form schema for respondent viewing | Public |
-| `POST` | `/public/forms/{slug}/submit` | Submit responses for a published form | Public |
-| `GET` | `/forms/{id}/versions` | List historical versions for a form | Bearer Token |
-| `GET` | `/forms/{id}/versions/{v_id}` | View detailed snapshot of a specific historical version | Bearer Token |
+| `POST` | `/public/forms/{slug}/submit` | Submit form responses with conditional and field validation | Public |
+| `GET` | `/forms/{form_id}/submissions` | View all respondent submissions and analytics for a form | Bearer Token |
+| `GET` | `/health` | System health and database connectivity check | Public |
 
 ---
 
-## Local Setup & Execution Guide
+## 📁 Project Directory Structure
 
-### Prerequisites
-- **Python 3.10+**
-- **PostgreSQL 14+**
+```text
+Dynamic_Form_Builder/
+├── app/                        # Backend Application Source Code
+│   ├── api/                    # Route Definitions & API Dependencies
+│   │   ├── routes/             # Endpoints: auth, forms, public, files
+│   │   └── deps.py             # Auth dependencies & database session injection
+│   ├── core/                   # Security utilities (JWT, password hashing)
+│   ├── crud/                   # Database CRUD operations & draft cloning logic
+│   ├── models/                 # SQLAlchemy ORM models (9 relational tables)
+│   ├── schemas/                # Pydantic V2 validation schemas
+│   ├── services/               # Business logic engines:
+│   │   ├── conditional_engine.py   # Conditional rule evaluation
+│   │   └── validation_engine.py    # Field constraints validation
+│   ├── database.py             # SQLAlchemy engine & session maker
+│   └── main.py                 # FastAPI application factory & route registration
+├── frontend/                   # Zero-Build CDN Frontend SPA
+│   ├── public/
+│   │   └── index.html          # Single HTML entrypoint loading React 18 & Tailwind CDN
+│   └── src/
+│       ├── api/                # API client (`formsApi.js`)
+│       └── components/         # React Components (FormBuilder, PublicFormView, etc.)
+├── uploads/                    # Local Disk Directory for Uploaded Files
+├── scratch/                    # Automated Test Suites & Verification Scripts
+├── requirements.txt            # Python Dependencies Specification
+├── README.md                   # Project Documentation
+└── .env                        # Environment Configuration Variables
+```
 
-### Configuration (`.env`)
+---
+
+## 🚀 Getting Started & Local Setup
+
+### 1. Prerequisites
+- **Python 3.10+** (Python 3.14 recommended)
+- **PostgreSQL 14+** running locally or remotely
+
+### 2. Environment Configuration
 Create a `.env` file in the root directory:
 ```env
-DATABASE_URL=postgresql://postgres:3034@localhost:5432/dynamic_workflow_db
+DATABASE_URL=postgresql://postgres:3034@localhost:5432/formpilotx_db
 JWT_SECRET_KEY=a4df5d050c5f54e45853c6a1ccff97a6569fc0deee659f8e9bc4f257145fb30b
 JWT_ALGORITHM=HS256
 JWT_EXPIRE_MINUTES=60
 ```
 
-### Backend Startup
-Install Python dependencies and start the Uvicorn application server:
+### 3. Virtual Environment & Dependencies
+```bash
+# Create and activate a Python virtual environment
+python -m venv .venv
+
+# On Windows:
+.venv\Scripts\activate
+
+# On macOS/Linux:
+source .venv/bin/activate
+
+# Install required packages
+pip install -r requirements.txt
+```
+
+### 4. Database Setup
+Ensure PostgreSQL is active and create the database:
+```sql
+CREATE DATABASE formpilotx_db;
+```
+*(All tables are automatically created on backend startup via SQLAlchemy metadata reflection).*
+
+### 5. Running the Application
+Start the Uvicorn ASGI server:
 ```bash
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### Frontend Application Access
-Open a web browser and navigate to:
+### 6. Accessing the Frontend
+Open your browser and navigate to:
 ```text
-http://127.0.0.1:8000/pages/react-app.html
+http://127.0.0.1:8000/app/public/index.html
 ```
+*(The root route `http://127.0.0.1:8000/` also redirects directly to the frontend application).*
 
-### Health Check Verification
-Verify backend API and PostgreSQL database health:
-```text
-http://127.0.0.1:8000/health
-```
-**Expected Response:**
-```json
-{
-  "application": "running",
-  "database": "connected"
-}
+---
+
+## 🧪 Automated Testing
+
+Execute the comprehensive test suites across draft cloning, publishing pipelines, conditional logic, and Milestone 2 features using `pytest`:
+
+```bash
+# Run Milestone 2 full test suite
+python -m pytest scratch/test_milestone2_completion.py -v
+
+# Run draft cloning and publishing flow tests
+python -m pytest scratch/test_draft_cloning.py scratch/test_publish_flow.py -v
+
+# Run all test suites in scratch/
+python -m pytest scratch/ -v
 ```
