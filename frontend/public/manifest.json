@@ -1,0 +1,32 @@
+{
+  "name": "FormPilotX",
+  "short_name": "FormPilotX",
+  "description": "Enterprise-grade form orchestration, response analytics, and automated telemetry.",
+  "start_url": "/app/public/index.html",
+  "scope": "/app/public/",
+  "display": "standalone",
+  "background_color": "#121316",
+  "theme_color": "#121316",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/app/public/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app/public/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app/public/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["productivity", "business", "utilities"]
+}

@@ -22,7 +22,8 @@ const SigninView = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/auth/signin', {
+      const apiBase = (typeof window !== 'undefined' && window.API_BASE_URL) || '';
+      const response = await fetch(`${apiBase}/auth/signin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -57,7 +58,7 @@ const SigninView = () => {
         <div className="flex flex-col items-center text-center gap-sm">
           <div className="flex items-center gap-sm">
             <span className="material-symbols-outlined text-[32px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>hexagon</span>
-            <h1 className="font-headline-lg text-headline-lg text-charcoal-dark tracking-tight font-black">FormPilotX</h1>
+            <h1 className="font-headline-lg text-headline-lg text-charcoal-dark tracking-tight font-black">FormPilot<span className="text-[#DFB257]">X</span></h1>
           </div>
           <p className="font-body-sm text-body-sm text-secondary">Sign in to your enterprise account.</p>
         </div>
@@ -137,7 +138,7 @@ const SigninView = () => {
 
       {/* Footer */}
       <div className="mt-2xl flex flex-col md:flex-row justify-between items-center px-lg py-xl w-full max-w-[480px] mx-auto border-t border-ash-border">
-        <span className="font-label-md text-label-md font-bold text-on-surface">FormPilotX</span>
+        <span className="font-label-md text-label-md font-bold text-on-surface">FormPilot<span className="text-[#DFB257]">X</span></span>
         <div className="flex gap-md mt-sm md:mt-0">
           <a className="font-body-sm text-body-sm text-secondary hover:text-charcoal-dark transition-colors" href="#/privacy">Privacy Policy</a>
           <a className="font-body-sm text-body-sm text-secondary hover:text-charcoal-dark transition-colors" href="#/terms">Terms of Service</a>

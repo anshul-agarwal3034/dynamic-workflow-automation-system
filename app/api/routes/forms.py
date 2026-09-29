@@ -1,10 +1,18 @@
+from datetime import datetime, timezone, timedelta
+import json
 import uuid
 from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import text
+from fastapi.responses import StreamingResponse, JSONResponse
+from sqlalchemy import text, func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user
+from app.services.analytics_engine import calculate_form_analytics
+from app.services.submission_query_service import get_paginated_form_responses
+from app.services.export_service import generate_csv_export, generate_json_export
+
+
 from app.crud.form import (
     create_form_with_version,
     get_form_by_id,
@@ -32,7 +40,9 @@ from app.schemas.form import (
     FormResponse,
     FormVersionResponse,
     FormVersionSummaryResponse,
-    ShareLinkResponse
+    ShareLinkResponse,
+    BulkFormDeleteRequest,
+    BulkFormDeleteResponse
 )
 from app.schemas.field import FieldCreate, FieldUpdate, FieldResponse, FieldReorderRequest
 from app.schemas.conditional_rule import (
@@ -40,14 +50,22 @@ from app.schemas.conditional_rule import (
     ConditionalRuleUpdate,
     ConditionalRuleResponse
 )
+from app.schemas.submission import (
+    BulkDeleteRequest,
+    BulkDeleteResponse,
+    RetentionUpdateRequest,
+    RetentionUpdateResponse
+)
 from app.models.user import User
 from app.models.form import Form
 from app.models.form_version import FormVersion
 from app.models.field import Field
+from app.models.field_option import FieldOption
 from app.models.conditional_rule import ConditionalRule
 from app.models.submission import Submission
 from app.models.response_value import ResponseValue
 from app.models.uploaded_file import UploadedFile
+from app.models.audit_log import AuditLog
 
 router = APIRouter()
 
@@ -56,13 +74,26 @@ router = APIRouter()
 def create_form(payload: FormCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Creates a new form and auto-creates its initial FormVersion (version_number=1, status='draft')
-    in a single atomic transaction.
+    in a single atomic transaction. Enforces unique case-insensitive title per tenant/workspace.
     """
+    existing = db.query(Form).filter(
+        func.lower(Form.title) == func.lower(payload.title.strip()),
+        Form.created_by == current_user.id
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A form with this title already exists in your workspace."
+        )
+
     form = create_form_with_version(
         db=db,
         title=payload.title,
         description=payload.description,
-        user_id=current_user.id
+        user_id=current_user.id,
+        max_submissions=payload.max_submissions,
+        closes_at=payload.closes_at,
+        closed_message=payload.closed_message
     )
     return get_form_by_id(db, form.id)
 
@@ -103,8 +134,9 @@ def update_form_endpoint(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Updates form title and description.
+    Updates form title, description, and availability settings.
     Requires ownership (403) and draft status (or published, which clones to a new draft).
+    Enforces unique case-insensitive title per tenant/workspace.
     """
     form = get_form_by_id(db, form_id=id)
     if not form:
@@ -116,10 +148,31 @@ def update_form_endpoint(
     if form.status == "archived":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Archived forms cannot be modified.")
 
+    if payload.title:
+        existing = db.query(Form).filter(
+            func.lower(Form.title) == func.lower(payload.title.strip()),
+            Form.created_by == current_user.id,
+            Form.id != id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A form with this title already exists in your workspace."
+            )
+
     if form.status == "published":
         ensure_draft_version(db, form)
 
-    updated = update_form(db=db, form=form, title=payload.title, description=payload.description)
+    updated = update_form(
+        db=db,
+        form=form,
+        title=payload.title,
+        description=payload.description,
+        max_submissions=payload.max_submissions,
+        closes_at=payload.closes_at,
+        closed_message=payload.closed_message,
+        fields_set=payload.model_fields_set
+    )
     return get_form_by_id(db, updated.id)
 
 
@@ -271,6 +324,101 @@ def unarchive_form_endpoint(
 
     unarchived = unarchive_form(db=db, form=form)
     return get_form_by_id(db, unarchived.id)
+
+
+@router.post("/forms/bulk-delete", response_model=BulkFormDeleteResponse)
+def bulk_delete_forms_endpoint(
+    payload: BulkFormDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Permanently deletes multiple forms owned by the current user in a single transaction.
+    Cleans up all child submissions, rules, options, fields, versions, and records an audit log entry.
+    """
+    if not payload.form_ids:
+        return BulkFormDeleteResponse(
+            success=True,
+            deleted_count=0,
+            message="No matching forms found"
+        )
+
+    # 1. Query matching forms owned by current_user
+    forms = (
+        db.query(Form)
+        .filter(Form.id.in_(payload.form_ids))
+        .filter(Form.created_by == current_user.id)
+        .all()
+    )
+
+    if not forms:
+        return BulkFormDeleteResponse(
+            success=True,
+            deleted_count=0,
+            message="No matching forms found"
+        )
+
+    form_uuids = [f.id for f in forms]
+    deleted_form_ids = [str(fid) for fid in form_uuids]
+    deleted_count = len(deleted_form_ids)
+
+    try:
+        # Step A: Delete versions' child submissions & response values
+        all_version_ids = [
+            vid for (vid,) in db.query(FormVersion.id).filter(FormVersion.form_id.in_(form_uuids)).all()
+        ]
+        if all_version_ids:
+            sub_ids = [
+                sid for (sid,) in db.query(Submission.id).filter(Submission.form_version_id.in_(all_version_ids)).all()
+            ]
+            if sub_ids:
+                db.query(ResponseValue).filter(ResponseValue.submission_id.in_(sub_ids)).delete(synchronize_session=False)
+                db.query(Submission).filter(Submission.id.in_(sub_ids)).delete(synchronize_session=False)
+
+            # Step B: Delete conditional rules
+            field_id_subq = db.query(Field.id).filter(Field.form_version_id.in_(all_version_ids))
+            db.query(ConditionalRule).filter(
+                (ConditionalRule.trigger_field_id.in_(field_id_subq)) |
+                (ConditionalRule.target_field_id.in_(field_id_subq))
+            ).delete(synchronize_session=False)
+
+            # Step C: Delete field options and fields
+            all_field_ids = [fid for (fid,) in field_id_subq.all()]
+            if all_field_ids:
+                db.query(FieldOption).filter(FieldOption.field_id.in_(all_field_ids)).delete(synchronize_session=False)
+                db.query(Field).filter(Field.id.in_(all_field_ids)).delete(synchronize_session=False)
+
+            # Step D: Delete form versions
+            db.query(FormVersion).filter(FormVersion.id.in_(all_version_ids)).delete(synchronize_session=False)
+
+        # Step E: Delete forms
+        for form in forms:
+            db.delete(form)
+
+        # Step F: AuditLog entry
+        audit_entry = AuditLog(
+            user_id=current_user.id,
+            action="bulk_delete_forms",
+            resource_type="form",
+            resource_id=None,
+            details={
+                "deleted_count": deleted_count,
+                "form_ids": deleted_form_ids
+            }
+        )
+        db.add(audit_entry)
+        db.commit()
+
+        return BulkFormDeleteResponse(
+            success=True,
+            deleted_count=deleted_count,
+            message=f"Successfully deleted {deleted_count} forms"
+        )
+    except Exception as e:
+        db.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Database deletion error: {str(e)}")
 
 
 @router.delete("/forms/{id}", status_code=200)
@@ -668,14 +816,16 @@ def get_form_submissions(
     if form.created_by != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access submissions for this form.")
 
-    # Query all submissions for any version of this form
+    # Query all completed submissions for any version of this form
     submissions = (
         db.query(Submission)
         .join(FormVersion, Submission.form_version_id == FormVersion.id)
         .filter(FormVersion.form_id == form_id)
+        .filter(Submission.status == 'completed')
         .order_by(Submission.submitted_at.desc())
         .all()
     )
+
 
     results = []
     for sub in submissions:
@@ -721,4 +871,259 @@ def get_form_submissions(
         })
 
     return results
+
+
+@router.get("/forms/{id}/analytics")
+def get_form_analytics_endpoint(
+    id: uuid.UUID,
+    version_id: Optional[uuid.UUID] = Query(None, description="Optional version ID filter"),
+    from_date: Optional[datetime] = Query(None, description="Optional start datetime ISO filter"),
+    to_date: Optional[datetime] = Query(None, description="Optional end datetime ISO filter"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retrieves aggregated response metrics and field value distributions for a form.
+    Requires ownership of the form.
+    """
+    form = get_form_by_id(db, form_id=id)
+    if not form:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found.")
+
+    if form.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view analytics for this form.")
+
+    analytics_data = calculate_form_analytics(
+        db=db,
+        form_id=id,
+        version_id=version_id,
+        from_date=from_date,
+        to_date=to_date
+    )
+    return analytics_data
+
+
+@router.get("/forms/{id}/responses")
+def get_form_responses(
+    id: uuid.UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: Optional[str] = None,
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status"),
+    from_date: Optional[str] = Query(None, description="Optional start datetime ISO or YYYY-MM-DD filter"),
+    to_date: Optional[str] = Query(None, description="Optional end datetime ISO or YYYY-MM-DD filter"),
+    field_filters: Optional[str] = None,  # JSON string
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retrieves server-side filtered, searched, and paginated responses for a form.
+    Requires ownership of the form.
+    """
+    form = get_form_by_id(db, form_id=id)
+    if not form:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found.")
+
+    if form.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access responses for this form.")
+
+    parsed_field_filters = None
+    if field_filters and field_filters.strip():
+        try:
+            parsed_field_filters = json.loads(field_filters)
+            if not isinstance(parsed_field_filters, dict):
+                parsed_field_filters = None
+        except Exception:
+            parsed_field_filters = None
+
+    return get_paginated_form_responses(
+        db=db,
+        form_id=id,
+        page=page,
+        page_size=page_size,
+        search=search,
+        status=status_filter,
+        from_date=from_date,
+        to_date=to_date,
+        field_filters=parsed_field_filters
+    )
+
+
+@router.get("/forms/{id}/export/csv")
+def export_form_responses_csv(
+    id: uuid.UUID,
+    version_id: Optional[uuid.UUID] = Query(None, description="Optional version filter"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Exports all completed responses for a form as an Excel-compatible CSV file (with UTF-8 BOM).
+    Requires form creator authorization.
+    """
+    form = get_form_by_id(db, form_id=id)
+    if not form:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found.")
+
+    if form.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to export responses for this form.")
+
+    csv_buf = generate_csv_export(db, form, version_id=version_id)
+    filename = f"responses_{form.id}.csv"
+    return StreamingResponse(
+        iter([csv_buf.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@router.get("/forms/{id}/export/json")
+def export_form_responses_json(
+    id: uuid.UUID,
+    version_id: Optional[uuid.UUID] = Query(None, description="Optional version filter"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Exports all completed responses for a form as a structured JSON document.
+    Requires form creator authorization.
+    """
+    form = get_form_by_id(db, form_id=id)
+    if not form:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found.")
+
+    if form.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to export responses for this form.")
+
+    json_data = generate_json_export(db, form, version_id=version_id)
+    filename = f"responses_{form.id}.json"
+    return JSONResponse(
+        content=json_data,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@router.post("/forms/{id}/responses/bulk-delete", response_model=BulkDeleteResponse)
+def bulk_delete_responses(
+    id: uuid.UUID,
+    payload: BulkDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Atomically deletes a collection of form responses belonging to the given form.
+    Logs the action in audit_logs.
+    Requires form creator authorization.
+    """
+    form = get_form_by_id(db, form_id=id)
+    if not form:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found.")
+
+    if form.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete responses for this form.")
+
+    if not payload.response_ids:
+        return BulkDeleteResponse(success=True, deleted_count=0)
+
+    # Query matching submissions belonging to this form
+    submissions = (
+        db.query(Submission)
+        .join(FormVersion, Submission.form_version_id == FormVersion.id)
+        .filter(FormVersion.form_id == id)
+        .filter(Submission.id.in_(payload.response_ids))
+        .all()
+    )
+
+    deleted_ids = [sub.id for sub in submissions]
+    deleted_count = len(deleted_ids)
+
+    if deleted_count > 0:
+        for sub in submissions:
+            db.delete(sub)
+
+        audit_entry = AuditLog(
+            user_id=current_user.id,
+            action="bulk_delete_responses",
+            resource_type="form_response",
+            resource_id=str(form.id),
+            details={
+                "deleted_count": deleted_count,
+                "response_ids": [str(i) for i in deleted_ids]
+            }
+        )
+        db.add(audit_entry)
+        db.commit()
+
+    return BulkDeleteResponse(success=True, deleted_count=deleted_count)
+
+
+@router.put("/forms/{id}/retention", response_model=RetentionUpdateResponse)
+def update_form_retention(
+    id: uuid.UUID,
+    payload: RetentionUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Updates the retention duration policy for a form and purges any expired responses.
+    Logs the policy change and any purges in audit_logs.
+    Requires form creator authorization.
+    """
+    form = get_form_by_id(db, form_id=id)
+    if not form:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found.")
+
+    if form.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to configure retention for this form.")
+
+    retention_val = payload.retention_days if (payload.retention_days and payload.retention_days > 0) else None
+    form.retention_days = retention_val
+
+    audit_entry = AuditLog(
+        user_id=current_user.id,
+        action="update_retention",
+        resource_type="form",
+        resource_id=str(form.id),
+        details={"retention_days": retention_val}
+    )
+    db.add(audit_entry)
+
+    purged_count = 0
+    if retention_val is not None:
+        cutoff_time = datetime.now(timezone.utc) - timedelta(days=retention_val)
+        expired_subs = (
+            db.query(Submission)
+            .join(FormVersion, Submission.form_version_id == FormVersion.id)
+            .filter(FormVersion.form_id == id)
+            .filter(func.coalesce(Submission.submitted_at, Submission.started_at) < cutoff_time)
+            .all()
+        )
+        purged_count = len(expired_subs)
+        if purged_count > 0:
+            purged_ids = [str(s.id) for s in expired_subs]
+            for s in expired_subs:
+                db.delete(s)
+            purge_audit = AuditLog(
+                user_id=current_user.id,
+                action="purge_expired_responses",
+                resource_type="form_response",
+                resource_id=str(form.id),
+                details={
+                    "purged_count": purged_count,
+                    "cutoff": cutoff_time.isoformat(),
+                    "response_ids": purged_ids
+                }
+            )
+            db.add(purge_audit)
+
+    db.commit()
+    db.refresh(form)
+    return RetentionUpdateResponse(
+        success=True,
+        retention_days=form.retention_days,
+        purged_count=purged_count
+    )
+
+
+
+
 

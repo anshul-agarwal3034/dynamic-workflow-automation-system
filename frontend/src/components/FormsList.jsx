@@ -1,4 +1,5 @@
 const FormsListView = () => {
+  const { t } = typeof useLanguage === 'function' ? useLanguage() : { t: (k) => (window.t ? window.t(k) : k) };
   const [forms, setForms] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
@@ -22,11 +23,27 @@ const FormsListView = () => {
   const [deleteModalForm, setDeleteModalForm] = React.useState(null);
   const [deleting, setDeleting] = React.useState(false);
 
+  // Form Settings Modal state
+  const [editingSettingsForm, setEditingSettingsForm] = React.useState(null);
+  const [settingsMaxSubmissions, setSettingsMaxSubmissions] = React.useState('');
+  const [settingsClosesAt, setSettingsClosesAt] = React.useState('');
+  const [settingsClosedMessage, setSettingsClosedMessage] = React.useState('');
+  const [savingSettings, setSavingSettings] = React.useState(false);
+  const [settingsError, setSettingsError] = React.useState('');
+  const [settingsSuccess, setSettingsSuccess] = React.useState('');
+
   // Version History Modal state
   const [showVersionsModalForm, setShowVersionsModalForm] = React.useState(null);
   const [versionsList, setVersionsList] = React.useState([]);
   const [loadingVersions, setLoadingVersions] = React.useState(false);
   const [viewingVersionDetail, setViewingVersionDetail] = React.useState(null);
+
+  // Bulk Selection & Delete state
+  const [selectedFormIds, setSelectedFormIds] = React.useState([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = React.useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = React.useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = React.useState('');
+  const [toastMessage, setToastMessage] = React.useState('');
 
   const fetchForms = React.useCallback(async (searchTerm = search, statusVal = statusFilter) => {
     setLoading(true);
@@ -104,6 +121,39 @@ const FormsListView = () => {
     }
   };
 
+  const openSettingsModal = (form) => {
+    setEditingSettingsForm(form);
+    setSettingsMaxSubmissions(form.max_submissions ? String(form.max_submissions) : '');
+    setSettingsClosesAt(form.closes_at ? form.closes_at.slice(0, 16) : '');
+    setSettingsClosedMessage(form.closed_message || '');
+    setSettingsError('');
+    setSettingsSuccess('');
+  };
+
+  const handleSaveSettings = async () => {
+    if (!editingSettingsForm) return;
+    setSavingSettings(true);
+    setSettingsError('');
+    setSettingsSuccess('');
+    try {
+      const payload = {
+        max_submissions: settingsMaxSubmissions !== '' ? parseInt(settingsMaxSubmissions, 10) : null,
+        closes_at: settingsClosesAt ? new Date(settingsClosesAt).toISOString() : null,
+        closed_message: settingsClosedMessage.trim() || null
+      };
+      await formsApi.updateForm(editingSettingsForm.id, payload);
+      setSettingsSuccess('Settings saved successfully!');
+      await fetchForms();
+      setTimeout(() => {
+        setEditingSettingsForm(null);
+      }, 1000);
+    } catch (err) {
+      setSettingsError(err.message || 'Failed to save settings.');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (!deleteModalForm) return;
     const targetFormId = deleteModalForm.id;
@@ -146,78 +196,129 @@ const FormsListView = () => {
     }
   };
 
+  // Reset selection when filter or search changes
+  React.useEffect(() => {
+    setSelectedFormIds([]);
+  }, [search, statusFilter]);
+
+  const allFormsSelected = forms.length > 0 && forms.every(f => selectedFormIds.includes(f.id));
+  const someFormsSelected = forms.length > 0 && forms.some(f => selectedFormIds.includes(f.id));
+
+  const toggleSelectAll = () => {
+    if (allFormsSelected) {
+      setSelectedFormIds([]);
+    } else {
+      setSelectedFormIds(forms.map(f => f.id));
+    }
+  };
+
+  const toggleSelectForm = (e, formId) => {
+    if (e) e.stopPropagation();
+    setSelectedFormIds(prev =>
+      prev.includes(formId) ? prev.filter(id => id !== formId) : [...prev, formId]
+    );
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (selectedFormIds.length === 0) return;
+    setIsBulkDeleting(true);
+    setBulkDeleteError('');
+    try {
+      const res = await formsApi.bulkDeleteForms(selectedFormIds);
+      const count = selectedFormIds.length;
+      setSelectedFormIds([]);
+      setShowBulkDeleteModal(false);
+      setToastMessage(res.message || `Successfully deleted ${count} forms`);
+      setTimeout(() => setToastMessage(''), 3500);
+      await fetchForms();
+    } catch (err) {
+      console.error('Bulk delete error:', err);
+      setBulkDeleteError(err.message || 'Failed to delete selected forms');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'draft':
-        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-warm-amber/10 text-warm-amber border border-warm-amber/20 rounded-full">Draft</span>;
+        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 rounded-full">{t('forms.drafts')}</span>;
       case 'published':
-        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-mint-emerald/10 text-mint-emerald border border-mint-emerald/20 rounded-full">Published</span>;
+        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-full">{t('forms.published')}</span>;
       case 'archived':
-        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-silver-container text-secondary border border-ash-border rounded-full">Archived</span>;
+        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-[#16181D] text-[#949089] border border-[#2A2D35] rounded-full">{t('forms.archived')}</span>;
       default:
-        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-silver-container text-primary rounded-full">{status}</span>;
+        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-[#16181D] text-[#F5F3EF] border border-[#2A2D35] rounded-full">{status}</span>;
     }
   };
 
   return (
     <SaaSAppShell activeTab="forms" searchVal={search} onSearchChange={(v) => { setSearch(v); fetchForms(v, statusFilter); }}>
       <div className="max-w-7xl mx-auto space-y-6">
+        {/* Floating Toast Notification */}
+        {toastMessage && (
+          <div className="fixed top-6 right-6 z-50 bg-[#16181D] text-[#F5F3EF] px-4 py-3 rounded-xl shadow-2xl border border-[#2A2D35] flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-top-3">
+            <span className="text-[#DFB257]">✓</span>
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
         {/* Header, Dual View Toggle & New Form Trigger */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-ash-border pb-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#2A2D35] pb-5">
           <div>
-            <h1 className="font-headline-lg text-headline-lg font-bold text-charcoal-dark tracking-tight">Forms Portfolio</h1>
-            <p className="font-body-md text-body-md text-secondary mt-1">Manage, publish, and inspect your automated form workflows</p>
+            <h1 className="font-headline-lg text-headline-lg font-bold text-white tracking-tight">{t('forms.title') || "My Forms"}</h1>
+            <p className="font-body-md text-body-md text-[#949089] mt-1">{t('forms.subtitle') || "Create, edit, and share all your forms in one place."}</p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
             {/* Dual View Toggle: Grid Cards vs Compact Table */}
-            <div className="flex items-center gap-1 bg-surface p-1 rounded-xl border border-ash-border">
+            <div className="flex items-center gap-1 bg-[#1A1D24] p-1 rounded-xl border border-[#2A2D35]">
               <button
                 onClick={() => setPortfolioViewMode('grid')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   portfolioViewMode === 'grid'
-                    ? 'bg-charcoal-dark text-on-primary shadow-sm'
-                    : 'text-secondary hover:text-primary hover:bg-silver-container'
+                    ? 'bg-gradient-to-r from-[#C59B27] to-[#E2B858] text-[#2A1D00] shadow-sm'
+                    : 'text-[#949089] hover:text-[#F5F3EF] hover:bg-[#16181D]'
                 }`}
               >
-                🗂️ Grid Cards
+                🗂️ {t('forms.gridCards')}
               </button>
               <button
                 onClick={() => setPortfolioViewMode('table')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   portfolioViewMode === 'table'
-                    ? 'bg-charcoal-dark text-on-primary shadow-sm'
-                    : 'text-secondary hover:text-primary hover:bg-silver-container'
+                    ? 'bg-gradient-to-r from-[#C59B27] to-[#E2B858] text-[#2A1D00] shadow-sm'
+                    : 'text-[#949089] hover:text-[#F5F3EF] hover:bg-[#16181D]'
                 }`}
               >
-                📊 Compact Table
+                📊 {t('forms.compactTable')}
               </button>
             </div>
 
             <button
               onClick={() => navigate('/forms/create')}
-              className="px-4 py-2.5 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-2"
+              className="px-4 py-2.5 bg-gradient-to-r from-[#C59B27] to-[#E2B858] hover:brightness-110 text-[#2A1D00] font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
             >
-              <span>+ New Form</span>
+              <span>+ {t('forms.createButton')}</span>
             </button>
           </div>
         </div>
 
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-2 border-b border-ash-border pb-3">
+        <div className="flex items-center gap-2 border-b border-[#2A2D35] pb-3">
           {[
-            { id: '', label: 'All Forms' },
-            { id: 'published', label: 'Published' },
-            { id: 'draft', label: 'Drafts' },
-            { id: 'archived', label: 'Archived' }
+            { id: '', label: t('forms.allForms') },
+            { id: 'published', label: t('forms.published') },
+            { id: 'draft', label: t('forms.drafts') },
+            { id: 'archived', label: t('forms.archived') }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => handleStatusTabClick(tab.id)}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                 statusFilter === tab.id
-                  ? 'bg-silver-container text-primary border border-ash-border'
-                  : 'text-secondary hover:text-primary hover:bg-silver-container'
+                  ? 'bg-[#1A1D24] text-[#E2B858] border border-[#E2B858]/30 shadow-sm'
+                  : 'text-[#949089] hover:text-[#F5F3EF] hover:bg-[#1A1D24]'
               }`}
             >
               {tab.label}
@@ -237,198 +338,280 @@ const FormsListView = () => {
           </div>
         ) : forms.length === 0 ? (
           /* Empty State */
-          <div className="bg-surface border border-ash-border rounded-2xl p-12 text-center my-6 shadow-sm">
-            <div className="w-14 h-14 rounded-2xl bg-silver-container text-secondary flex items-center justify-center text-2xl mx-auto mb-4 border border-ash-border">
+          <div className="bg-[#1A1D24] border border-[#2A2D35] rounded-2xl p-12 text-center my-6 shadow-sm">
+            <div className="w-14 h-14 rounded-2xl bg-[#16181D] text-[#E2B858] flex items-center justify-center text-2xl mx-auto mb-4 border border-[#2A2D35] shadow-inner">
               📝
             </div>
-            <h3 className="text-base font-bold text-charcoal-dark mb-1">No forms found</h3>
-            <p className="text-xs text-secondary max-w-sm mx-auto mb-6">
+            <h3 className="text-lg font-bold text-[#F5F3EF] mb-1.5 tracking-tight">{t('forms.emptyTitle')}</h3>
+            <p className="text-xs text-[#949089] max-w-sm mx-auto mb-6 leading-relaxed">
               {search || statusFilter
                 ? 'No forms match your current search or status filter criteria.'
-                : "You haven't created any forms yet. Initialize your first form to get started!"}
+                : t('forms.emptySubtitle')}
             </p>
             {!(search || statusFilter) && (
               <button
                 onClick={() => navigate('/forms/create')}
-                className="px-5 py-2.5 bg-charcoal-dark hover:opacity-90 text-on-primary text-xs font-bold rounded-xl shadow-sm transition-all inline-flex items-center gap-2"
+                className="px-5 py-2.5 bg-gradient-to-r from-[#C59B27] to-[#E2B858] hover:brightness-110 text-[#2A1D00] text-xs font-bold rounded-xl shadow-lg transition-all inline-flex items-center gap-2 cursor-pointer"
               >
-                <span>+ Create First Form</span>
+                <span className="material-symbols-outlined text-sm">add</span>
+                <span>Create First Form</span>
               </button>
             )}
           </div>
-        ) : portfolioViewMode === 'grid' ? (
-          /* View Mode 1: Grid Cards */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {forms.map((form) => {
-              const activeVersion = form.versions && form.versions.length > 0 ? form.versions[0] : null;
-              const fieldCount = activeVersion && activeVersion.fields ? activeVersion.fields.length : 0;
-              return (
-                <div
-                  key={form.id}
-                  onClick={() => navigate(`/forms/${form.id}`)}
-                  className="bg-surface border border-ash-border hover:border-charcoal-dark rounded-2xl p-5 transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between group"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-[11px] text-secondary font-bold bg-silver-container px-2 py-0.5 rounded-lg border border-ash-border">
-                        v{activeVersion ? activeVersion.version_number : 1}
-                      </span>
-                      {getStatusBadge(form.status)}
-                    </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Select All Bar */}
+            <div className="flex items-center justify-between bg-[#1A1D24] border border-[#2A2D35] rounded-xl px-4 py-2.5 text-xs shadow-sm">
+              <label className="flex items-center gap-2.5 cursor-pointer font-bold select-none text-[#F5F3EF]">
+                <input
+                  type="checkbox"
+                  checked={allFormsSelected}
+                  ref={el => { if (el) el.indeterminate = someFormsSelected && !allFormsSelected; }}
+                  onChange={toggleSelectAll}
+                  className="rounded border-[#2A2D35] bg-[#16181D] text-[#E2B858] focus:ring-0 cursor-pointer w-4 h-4"
+                />
+                <span>Select All Forms ({forms.length})</span>
+              </label>
+              {selectedFormIds.length > 0 && (
+                <span className="text-xs font-semibold text-[#DFB257]">
+                  {selectedFormIds.length} of {forms.length} selected
+                </span>
+              )}
+            </div>
 
-                    <div>
-                      <h3 className="font-bold text-sm text-charcoal-dark group-hover:text-primary transition-colors truncate">
-                        {form.title}
-                      </h3>
-                      <p className="text-xs text-secondary mt-1 line-clamp-2 min-h-[32px]">
-                        {form.description || 'No description provided.'}
-                      </p>
-                    </div>
+            {portfolioViewMode === 'grid' ? (
+              /* View Mode 1: Grid Cards */
+              <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {forms.map((form) => {
+                  const activeVersion = form.versions && form.versions.length > 0 ? form.versions[0] : null;
+                  const fieldCount = activeVersion && activeVersion.fields ? activeVersion.fields.length : 0;
+                  const isSelected = selectedFormIds.includes(form.id);
 
-                    <div className="flex items-center gap-4 text-[11px] text-secondary pt-2 border-t border-ash-border">
-                      <span>{fieldCount} {fieldCount === 1 ? 'Field' : 'Fields'}</span>
-                      <span>•</span>
-                      <span>Created {new Date(form.created_at).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 mt-4 border-t border-ash-border flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-bold text-secondary">Form Actions</span>
-
-                    <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuFormId(openMenuFormId === form.id ? null : form.id);
-                        }}
-                        className="w-8 h-8 flex items-center justify-center bg-surface hover:bg-silver-container text-charcoal-dark font-black text-base rounded-xl transition-all border border-ash-border shadow-sm"
-                        title="Form Actions"
-                      >
-                        ⋮
-                      </button>
-
-                      {openMenuFormId === form.id && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpenMenuFormId(null); }} />
-                          <div className="absolute right-0 bottom-9 w-52 bg-surface rounded-2xl shadow-2xl border border-ash-border z-50 p-2 space-y-1 text-left">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuFormId(null);
-                                navigate(`/forms/${form.id}/edit`);
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
-                            >
-                              <span>🎨</span> Open Form Builder
-                            </button>
-
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuFormId(null);
-                                handleOpenShareModal(e, form);
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
-                            >
-                              <span>🔗</span> Share Public Link
-                            </button>
-
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuFormId(null);
-                                handleOpenVersionsModal(e, form);
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
-                            >
-                              <span>📜</span> Version History
-                            </button>
-
-                            {form.status === 'archived' ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenMenuFormId(null);
-                                  handleUnarchiveForm(e, form.id);
-                                }}
-                                disabled={unarchivingId === form.id}
-                                className="w-full text-left px-3 py-2 text-xs font-bold text-mint-emerald hover:bg-mint-emerald/10 rounded-xl transition-colors flex items-center gap-2"
-                              >
-                                <span>🔄</span> {unarchivingId === form.id ? 'Restoring...' : 'Unarchive Form'}
-                              </button>
-                            ) : (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenMenuFormId(null);
-                                  setArchiveModalForm(form);
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
-                              >
-                                <span>📦</span> Archive Form
-                              </button>
-                            )}
-
-                            <div className="border-t border-ash-border my-1" />
-
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuFormId(null);
-                                setDeleteModalForm(form);
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs font-bold text-error hover:bg-error-container/40 rounded-xl transition-colors flex items-center gap-2"
-                            >
-                              <span>🗑️</span> Delete Form
-                            </button>
+                  return (
+                    <div
+                      key={form.id}
+                      onClick={() => navigate(`/forms/${form.id}`)}
+                      className={`p-3.5 sm:p-5 rounded-xl border bg-[#1A1D24] transition-all shadow-md hover:shadow-xl cursor-pointer flex flex-col justify-between group ${
+                        isSelected ? 'border-[#E2B858] bg-[#E2B858]/5' : 'border-[#2A2D35] hover:border-[#E2B858]/50'
+                      }`}
+                    >
+                      <div>
+                        {/* Header Row: Title, Status badge, and Three-dots menu */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => toggleSelectForm(e, form.id)}
+                              className="rounded border-[#2A2D35] bg-[#16181D] text-[#E2B858] focus:ring-0 cursor-pointer w-4 h-4 shrink-0"
+                            />
+                            <h3 className="truncate text-base sm:text-lg font-semibold text-[#F5F3EF] group-hover:text-[#E2B858] transition-colors">
+                              {form.title}
+                            </h3>
                           </div>
-                        </>
-                      )}
+
+                          <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            {getStatusBadge(form.status)}
+                            <div className="relative inline-block text-left">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuFormId(openMenuFormId === form.id ? null : form.id);
+                                }}
+                                className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-[#16181D] hover:bg-[#20232B] text-[#F5F3EF] hover:text-[#E2B858] font-black text-sm sm:text-base rounded-lg transition-all border border-[#2A2D35] shadow-sm cursor-pointer"
+                                title={t('forms.formActions')}
+                              >
+                                ⋮
+                              </button>
+
+                              {openMenuFormId === form.id && (
+                                <>
+                                  <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpenMenuFormId(null); }} />
+                                  <div className="absolute right-0 top-9 w-52 bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] z-50 p-2 space-y-1 text-left">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenMenuFormId(null);
+                                        navigate(`/forms/${form.id}/edit`);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] hover:text-[#E2B858] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <span className="material-symbols-outlined text-sm">edit</span>
+                                      <span>Edit Form</span>
+                                    </button>
+
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenMenuFormId(null);
+                                        openSettingsModal(form);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] hover:text-[#E2B858] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <span className="material-symbols-outlined text-sm">settings</span>
+                                      <span>Settings</span>
+                                    </button>
+
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenMenuFormId(null);
+                                        handleOpenShareModal(e, form);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] hover:text-[#E2B858] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <span>🔗</span> Share Public Link
+                                    </button>
+
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenMenuFormId(null);
+                                        handleOpenVersionsModal(e, form);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] hover:text-[#E2B858] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <span>📜</span> Version History
+                                    </button>
+
+                                    {form.status === 'archived' ? (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenMenuFormId(null);
+                                          handleUnarchiveForm(e, form.id);
+                                        }}
+                                        disabled={unarchivingId === form.id}
+                                        className="w-full text-left px-3 py-2 text-xs font-bold text-mint-emerald hover:bg-mint-emerald/10 rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                                      >
+                                        <span>🔄</span> {unarchivingId === form.id ? 'Restoring...' : 'Unarchive Form'}
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenMenuFormId(null);
+                                          setArchiveModalForm(form);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] hover:text-[#DFB257] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                                      >
+                                        <span>📦</span> Archive Form
+                                      </button>
+                                    )}
+
+                                    <div className="border-t border-[#2A2D35] my-1" />
+
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenMenuFormId(null);
+                                        setDeleteModalForm(form);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-xs font-bold text-error hover:bg-error/20 rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <span>🗑️</span> Delete Form
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Description (hidden on mobile, shown on sm+) */}
+                        <p className="hidden sm:block text-xs text-[#949089] mt-2 line-clamp-2 min-h-[32px]">
+                          {form.description || t('forms.noDesc')}
+                        </p>
+
+                        {/* Metadata (hidden on mobile, shown on sm+) */}
+                        <div className="hidden sm:flex items-center gap-3 text-[11px] text-[#949089] pt-2 border-t border-[#2A2D35] mt-2">
+                          <span className="font-mono text-[11px] text-[#DFB257] font-bold bg-[#16181D] px-2 py-0.5 rounded-lg border border-[#2A2D35]">
+                            v{activeVersion ? activeVersion.version_number : 1}
+                          </span>
+                          <span>{fieldCount} {fieldCount === 1 ? t('forms.fieldSingle') : t('forms.fieldsCount')}</span>
+                          <span>•</span>
+                          <span>{t('forms.createdOn')} {new Date(form.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      {/* Footer Row: Response count and last updated timestamp on a single line */}
+                      <div className="flex items-center justify-between text-xs text-[#8E929C] mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-[#2A2D35]/40">
+                        <span>
+                          {form.submissions_count !== undefined
+                            ? `${form.submissions_count} responses`
+                            : (form.response_count !== undefined
+                                ? `${form.response_count} responses`
+                                : `${fieldCount} fields`)}
+                        </span>
+                        <span>
+                          Updated {new Date(form.updated_at || form.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
         ) : (
           /* View Mode 2: Compact Data Table */
-          <div className="bg-surface border border-ash-border rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="bg-[#1A1D24] border border-[#2A2D35] rounded-2xl p-6 shadow-xl space-y-4">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-charcoal-dark">
+              <table className="w-full text-left text-xs text-[#F5F3EF]">
                 <thead>
-                  <tr className="border-b border-ash-border text-secondary uppercase tracking-wider text-[10px]">
-                    <th className="py-3 px-4 font-bold">Form Title</th>
-                    <th className="py-3 px-4 font-bold">Status</th>
+                  <tr className="border-b border-[#2A2D35] text-[#949089] uppercase tracking-wider text-[10px]">
+                    <th className="py-3 px-4 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={allFormsSelected}
+                        ref={el => { if (el) el.indeterminate = someFormsSelected && !allFormsSelected; }}
+                        onChange={toggleSelectAll}
+                        className="rounded border-[#2A2D35] bg-[#16181D] text-[#E2B858] focus:ring-0 focus:ring-offset-0 cursor-pointer w-4 h-4"
+                        title="Select/Deselect all forms"
+                      />
+                    </th>
+                    <th className="py-3 px-4 font-bold">{t('forms.colTitle')}</th>
+                    <th className="py-3 px-4 font-bold">{t('forms.colStatus')}</th>
                     <th className="py-3 px-4 font-bold">Version</th>
-                    <th className="py-3 px-4 font-bold">Fields</th>
-                    <th className="py-3 px-4 font-bold">Created Date</th>
-                    <th className="py-3 px-4 font-bold text-right">Actions</th>
+                    <th className="py-3 px-4 font-bold">{t('forms.fieldsCount')}</th>
+                    <th className="py-3 px-4 font-bold">{t('forms.colCreated')}</th>
+                    <th className="py-3 px-4 font-bold text-right">{t('forms.colActions')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-ash-border">
+                <tbody className="divide-y divide-[#2A2D35]">
                   {forms.map((form) => {
                     const activeVersion = form.versions && form.versions.length > 0 ? form.versions[0] : null;
                     const fieldCount = activeVersion && activeVersion.fields ? activeVersion.fields.length : 0;
+                    const isSelected = selectedFormIds.includes(form.id);
+
                     return (
                       <tr
                         key={form.id}
                         onClick={() => navigate(`/forms/${form.id}`)}
-                        className="hover:bg-silver-container/60 transition-colors cursor-pointer"
+                        className={`transition-colors cursor-pointer ${
+                          isSelected ? 'bg-[#E2B858]/10 hover:bg-[#E2B858]/15' : 'hover:bg-[#20232B]/60'
+                        }`}
                       >
-                        <td className="py-3.5 px-4 font-bold text-charcoal-dark">
+                        <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => toggleSelectForm(e, form.id)}
+                            className="rounded border-[#2A2D35] bg-[#16181D] text-[#E2B858] focus:ring-0 focus:ring-offset-0 cursor-pointer w-4 h-4"
+                          />
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-[#F5F3EF]">
                           {form.title}
                           {form.description && (
-                            <span className="block text-[11px] font-normal text-secondary truncate max-w-xs">
+                            <span className="block text-[11px] font-normal text-[#949089] truncate max-w-xs">
                               {form.description}
                             </span>
                           )}
                         </td>
                         <td className="py-3.5 px-4">{getStatusBadge(form.status)}</td>
-                        <td className="py-3.5 px-4 font-mono text-secondary">
+                        <td className="py-3.5 px-4 font-mono text-[#DFB257]">
                           v{activeVersion ? activeVersion.version_number : 1}
                         </td>
-                        <td className="py-3.5 px-4 font-semibold text-charcoal-dark">{fieldCount} Fields</td>
-                        <td className="py-3.5 px-4 text-secondary">
+                        <td className="py-3.5 px-4 font-semibold text-[#F5F3EF]">{fieldCount} {fieldCount === 1 ? t('forms.fieldSingle') : t('forms.fieldsCount')}</td>
+                        <td className="py-3.5 px-4 text-[#949089]">
                           {new Date(form.created_at).toLocaleDateString()}
                         </td>
                         <td className="py-3.5 px-4 text-right">
@@ -438,8 +621,8 @@ const FormsListView = () => {
                                 e.stopPropagation();
                                 setOpenMenuFormId(openMenuFormId === form.id ? null : form.id);
                               }}
-                              className="w-8 h-8 flex items-center justify-center bg-surface hover:bg-silver-container text-charcoal-dark font-black text-base rounded-xl transition-all border border-ash-border shadow-sm ml-auto"
-                              title="Form Actions"
+                              className="w-8 h-8 flex items-center justify-center bg-[#16181D] hover:bg-[#20232B] text-[#F5F3EF] font-black text-base rounded-xl transition-all border border-[#2A2D35] shadow-sm ml-auto"
+                              title={t('forms.formActions')}
                             >
                               ⋮
                             </button>
@@ -447,16 +630,29 @@ const FormsListView = () => {
                             {openMenuFormId === form.id && (
                               <>
                                 <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpenMenuFormId(null); }} />
-                                <div className="absolute right-0 top-9 w-52 bg-surface rounded-2xl shadow-2xl border border-ash-border z-50 p-2 space-y-1 text-left">
+                                <div className="absolute right-0 top-9 w-52 bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] z-50 p-2 space-y-1 text-left backdrop-blur-md">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setOpenMenuFormId(null);
                                       navigate(`/forms/${form.id}/edit`);
                                     }}
-                                    className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
+                                    className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
                                   >
-                                    <span>🎨</span> Open Form Builder
+                                    <span className="material-symbols-outlined text-sm">edit</span>
+                                    <span>Edit Form</span>
+                                  </button>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuFormId(null);
+                                      openSettingsModal(form);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <span className="material-symbols-outlined text-sm">settings</span>
+                                    <span>Settings</span>
                                   </button>
 
                                   <button
@@ -465,7 +661,7 @@ const FormsListView = () => {
                                       setOpenMenuFormId(null);
                                       handleOpenShareModal(e, form);
                                     }}
-                                    className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
+                                    className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] rounded-xl transition-colors flex items-center gap-2"
                                   >
                                     <span>🔗</span> Share Public Link
                                   </button>
@@ -476,7 +672,7 @@ const FormsListView = () => {
                                       setOpenMenuFormId(null);
                                       handleOpenVersionsModal(e, form);
                                     }}
-                                    className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
+                                    className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] rounded-xl transition-colors flex items-center gap-2"
                                   >
                                     <span>📜</span> Version History
                                   </button>
@@ -489,7 +685,7 @@ const FormsListView = () => {
                                         handleUnarchiveForm(e, form.id);
                                       }}
                                       disabled={unarchivingId === form.id}
-                                      className="w-full text-left px-3 py-2 text-xs font-bold text-mint-emerald hover:bg-mint-emerald/10 rounded-xl transition-colors flex items-center gap-2"
+                                      className="w-full text-left px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-colors flex items-center gap-2"
                                     >
                                       <span>🔄</span> {unarchivingId === form.id ? 'Restoring...' : 'Unarchive Form'}
                                     </button>
@@ -500,13 +696,13 @@ const FormsListView = () => {
                                         setOpenMenuFormId(null);
                                         setArchiveModalForm(form);
                                       }}
-                                      className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
+                                      className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] rounded-xl transition-colors flex items-center gap-2"
                                     >
                                       <span>📦</span> Archive Form
                                     </button>
                                   )}
 
-                                  <div className="border-t border-ash-border my-1" />
+                                  <div className="border-t border-[#2A2D35] my-1" />
 
                                   <button
                                     onClick={(e) => {
@@ -514,7 +710,7 @@ const FormsListView = () => {
                                       setOpenMenuFormId(null);
                                       setDeleteModalForm(form);
                                     }}
-                                    className="w-full text-left px-3 py-2 text-xs font-bold text-error hover:bg-error-container/40 rounded-xl transition-colors flex items-center gap-2"
+                                    className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/10 rounded-xl transition-colors flex items-center gap-2"
                                   >
                                     <span>🗑️</span> Delete Form
                                   </button>
@@ -532,88 +728,122 @@ const FormsListView = () => {
           </div>
         )}
       </div>
+    )}
+  </div>
 
-      {/* Share Form Link Modal */}
-      {shareModalForm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-md w-full p-6 text-left space-y-4">
-            <div className="flex items-center justify-between border-b border-ash-border pb-3">
-              <h3 className="font-bold text-charcoal-dark text-sm flex items-center gap-2">
-                <span>🔗</span> Share Form: {shareModalForm.title}
+      {/* Form Settings Modal */}
+      {editingSettingsForm && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-md w-full p-6 text-left space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#2A2D35] pb-3">
+              <h3 className="font-bold text-[#F5F3EF] text-base flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#E2B858] text-[20px]">settings</span>
+                <span>Settings: {editingSettingsForm.title}</span>
               </h3>
-              <button
-                onClick={() => setShareModalForm(null)}
-                className="text-secondary hover:text-primary text-sm font-bold"
-              >
-                ✕
-              </button>
+              <button onClick={() => setEditingSettingsForm(null)} className="text-[#949089] hover:text-[#F5F3EF] font-bold">✕</button>
             </div>
 
-            {generatingLink ? (
-              <p className="text-xs text-secondary py-4 text-center">Generating share link...</p>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-xs text-secondary leading-relaxed">
-                  Anyone with this link can fill out and submit responses to this published form:
-                </p>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={shareUrl}
-                    className="flex-1 h-9 px-3 border border-ash-border rounded-xl text-xs font-mono bg-silver-container text-primary"
-                  />
-                  <button
-                    onClick={handleCopyShareLink}
-                    className="px-3.5 py-2 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl transition-all shrink-0 shadow-sm"
-                  >
-                    {copiedLink ? 'Copied! ✓' : 'Copy Link'}
-                  </button>
-                </div>
-
-                <div className="pt-2 flex items-center justify-between">
-                  <a
-                    href={shareUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-bold text-electric-indigo hover:underline flex items-center gap-1"
-                  >
-                    <span>↗</span> Open Public Form
-                  </a>
-
-                  <button
-                    onClick={() => setShareModalForm(null)}
-                    className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl"
-                  >
-                    Done
-                  </button>
-                </div>
+            {settingsError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl">
+                {settingsError}
               </div>
             )}
+            {settingsSuccess && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-xl flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                <span>{settingsSuccess}</span>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-[#949089] mb-1">Max Submissions</label>
+                <input
+                  type="number"
+                  name="max_submissions"
+                  min="1"
+                  placeholder="Max Submissions"
+                  value={settingsMaxSubmissions}
+                  onChange={(e) => setSettingsMaxSubmissions(e.target.value)}
+                  className="w-full h-8 px-3 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#949089] mb-1">Close Date & Time</label>
+                <input
+                  type="datetime-local"
+                  name="closes_at"
+                  value={settingsClosesAt}
+                  onChange={(e) => setSettingsClosesAt(e.target.value)}
+                  className="w-full h-8 px-3 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#949089] mb-1">Custom Closed Message</label>
+                <textarea
+                  name="closed_message"
+                  rows={2}
+                  placeholder="Custom closed message..."
+                  value={settingsClosedMessage}
+                  onChange={(e) => setSettingsClosedMessage(e.target.value)}
+                  className="w-full p-2 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858] resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-[#2A2D35] flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setEditingSettingsForm(null)}
+                className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] font-semibold text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSettings}
+                disabled={savingSettings}
+                className="px-4 py-2 bg-gradient-to-r from-[#DFB257] to-[#E2B858] hover:brightness-110 text-[#121316] font-bold text-xs rounded-xl shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                {savingSettings ? 'Saving...' : 'Save Settings'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
+      {/* Share / Embed Modal */}
+      {Boolean(shareModalForm) && (
+        <EmbedModal
+          isOpen={Boolean(shareModalForm)}
+          form={shareModalForm}
+          shareUrl={shareUrl}
+          generating={generatingLink}
+          onClose={() => setShareModalForm(null)}
+        />
+      )}
+
       {/* Archive Form Confirmation Modal */}
       {archiveModalForm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-sm w-full p-6 text-left space-y-4">
-            <h3 className="font-bold text-charcoal-dark text-base">Archive form: {archiveModalForm.title}?</h3>
-            <p className="text-xs text-secondary leading-relaxed">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-sm w-full p-6 text-left space-y-4">
+            <h3 className="font-bold text-[#F5F3EF] text-base">Archive form: {archiveModalForm.title}?</h3>
+            <p className="text-xs text-[#949089] leading-relaxed">
               Archiving will freeze this form permanently and reject any future public response submissions (returns HTTP 410 Gone). You can restore it anytime with Unarchive.
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 onClick={() => setArchiveModalForm(null)}
-                className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl"
+                className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] font-semibold text-xs rounded-xl border border-[#2A2D35]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmArchive}
                 disabled={archiving}
-                className="px-4 py-2 bg-error hover:opacity-90 text-white font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
               >
                 {archiving ? 'Archiving...' : 'Archive Form'}
               </button>
@@ -624,23 +854,23 @@ const FormsListView = () => {
 
       {/* Delete Form Confirmation Modal */}
       {deleteModalForm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-sm w-full p-6 text-left space-y-4">
-            <h3 className="font-bold text-charcoal-dark text-base">Delete form: {deleteModalForm.title}?</h3>
-            <p className="text-xs text-secondary leading-relaxed">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-sm w-full p-6 text-left space-y-4">
+            <h3 className="font-bold text-[#F5F3EF] text-base">Delete form: {deleteModalForm.title}?</h3>
+            <p className="text-xs text-[#949089] leading-relaxed">
               Are you sure you want to permanently delete this form? This cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 onClick={() => setDeleteModalForm(null)}
-                className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl"
+                className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] font-semibold text-xs rounded-xl border border-[#2A2D35]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmDelete}
                 disabled={deleting}
-                className="px-4 py-2 bg-error hover:opacity-90 text-white font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
               >
                 {deleting ? 'Deleting...' : 'Delete Form'}
               </button>
@@ -651,42 +881,42 @@ const FormsListView = () => {
 
       {/* Version History Modal */}
       {showVersionsModalForm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-lg w-full p-6 text-left space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-ash-border pb-3">
-              <h3 className="font-bold text-charcoal-dark text-sm flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-lg w-full p-6 text-left space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-[#2A2D35] pb-3">
+              <h3 className="font-bold text-[#F5F3EF] text-sm flex items-center gap-2">
                 <span>📜</span> Version History: {showVersionsModalForm.title}
               </h3>
-              <button onClick={() => setShowVersionsModalForm(null)} className="text-secondary hover:text-primary font-bold">✕</button>
+              <button onClick={() => setShowVersionsModalForm(null)} className="text-[#949089] hover:text-[#F5F3EF] font-bold">✕</button>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
               {loadingVersions ? (
-                <p className="text-xs text-secondary py-6 text-center">Loading versions...</p>
+                <p className="text-xs text-[#949089] py-6 text-center">Loading versions...</p>
               ) : versionsList.length === 0 ? (
-                <p className="text-xs text-secondary py-6 text-center">No version history found.</p>
+                <p className="text-xs text-[#949089] py-6 text-center">No version history found.</p>
               ) : (
                 versionsList.map(v => (
-                  <div key={v.id} className="p-3.5 border border-ash-border rounded-xl bg-silver-container/30 flex items-center justify-between gap-3">
+                  <div key={v.id} className="p-3.5 border border-[#2A2D35] rounded-xl bg-[#16181D] flex items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-charcoal-dark">Version {v.version_number}</span>
+                        <span className="font-bold text-xs text-[#F5F3EF]">Version {v.version_number}</span>
                         {v.is_active && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold bg-mint-emerald/10 text-mint-emerald rounded-full border border-mint-emerald/20">Active</span>
+                          <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">Active</span>
                         )}
                         {!v.published_at && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold bg-warm-amber/10 text-warm-amber rounded-full border border-warm-amber/20">Draft</span>
+                          <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20">Draft</span>
                         )}
                       </div>
-                      <p className="text-[11px] text-secondary mt-1">
+                      <p className="text-[11px] text-[#949089] mt-1">
                         {v.published_at ? `Published: ${new Date(v.published_at).toLocaleString()}` : 'Draft Snapshot (Unpublished)'}
                       </p>
-                      <p className="text-[10px] text-secondary mt-0.5">{v.field_count} Fields</p>
+                      <p className="text-[10px] text-[#949089] mt-0.5">{v.field_count} Fields</p>
                     </div>
 
                     <button
                       onClick={() => handleViewVersionDetail(showVersionsModalForm.id, v.id)}
-                      className="px-3 py-1 text-xs font-semibold bg-silver-container hover:bg-ash-border text-primary rounded-lg transition-colors"
+                      className="px-3 py-1 text-xs font-semibold bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] rounded-lg transition-colors"
                     >
                       View Fields
                     </button>
@@ -695,23 +925,23 @@ const FormsListView = () => {
               )}
 
               {viewingVersionDetail && (
-                <div className="mt-4 p-4 border border-electric-indigo/30 rounded-xl bg-electric-indigo/10 space-y-3">
+                <div className="mt-4 p-4 border border-[#DFB257]/30 rounded-xl bg-[#DFB257]/5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-xs text-electric-indigo">
+                    <h4 className="font-bold text-xs text-[#DFB257]">
                       Fields Snapshot for Version {viewingVersionDetail.version_number}
                     </h4>
-                    <button onClick={() => setViewingVersionDetail(null)} className="text-[11px] font-bold text-electric-indigo hover:underline">
+                    <button onClick={() => setViewingVersionDetail(null)} className="text-[11px] font-bold text-[#DFB257] hover:underline">
                       Close Snapshot
                     </button>
                   </div>
                   {viewingVersionDetail.fields.length === 0 ? (
-                    <p className="text-xs text-secondary">No fields in this version.</p>
+                    <p className="text-xs text-[#949089]">No fields in this version.</p>
                   ) : (
                     <div className="space-y-1.5">
                       {viewingVersionDetail.fields.map((f, i) => (
-                        <div key={f.id} className="text-xs bg-surface p-2 border border-ash-border rounded flex items-center justify-between">
-                          <span className="font-medium text-charcoal-dark">{i + 1}. {f.label}</span>
-                          <span className="text-[10px] text-secondary uppercase">{f.field_type}</span>
+                        <div key={f.id} className="text-xs bg-[#16181D] p-2 border border-[#2A2D35] rounded flex items-center justify-between">
+                          <span className="font-medium text-[#F5F3EF]">{i + 1}. {f.label}</span>
+                          <span className="text-[10px] text-[#949089] uppercase">{f.field_type}</span>
                         </div>
                       ))}
                     </div>
@@ -720,9 +950,93 @@ const FormsListView = () => {
               )}
             </div>
 
-            <div className="pt-2 border-t border-ash-border flex justify-end">
-              <button onClick={() => setShowVersionsModalForm(null)} className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl">
+            <div className="pt-2 border-t border-[#2A2D35] flex justify-end">
+              <button onClick={() => setShowVersionsModalForm(null)} className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] font-semibold text-xs rounded-xl border border-[#2A2D35]">
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Bulk Action Bar */}
+      {selectedFormIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#1A1D24] text-[#F5F3EF] px-5 py-3 rounded-2xl shadow-2xl border border-[#2A2D35] flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#E2B858] animate-pulse"></span>
+            <span className="text-xs font-semibold">
+              <strong className="text-[#F5F3EF]">{selectedFormIds.length}</strong> {selectedFormIds.length === 1 ? 'form' : 'forms'} selected
+            </span>
+          </div>
+
+          <div className="h-4 w-[1px] bg-[#2A2D35]"></div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowBulkDeleteModal(true)}
+              disabled={isBulkDeleting}
+              className="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+            >
+              <span>🗑️</span> Delete Selected
+            </button>
+
+            <button
+              onClick={() => setSelectedFormIds([])}
+              disabled={isBulkDeleting}
+              className="px-3 py-1.5 bg-[#20232B] hover:bg-[#2A2D35] text-[#949089] hover:text-[#F5F3EF] text-xs font-medium rounded-xl transition-colors border border-[#2A2D35]"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-md w-full p-6 text-left space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-xl text-red-400">
+              ⚠️
+            </div>
+            <div>
+              <h3 className="font-bold text-[#F5F3EF] text-base">
+                Delete {selectedFormIds.length} {selectedFormIds.length === 1 ? 'Form' : 'Forms'}?
+              </h3>
+              <p className="text-xs text-[#949089] mt-1.5 leading-relaxed">
+                This will permanently delete the selected <strong className="text-[#F5F3EF]">{selectedFormIds.length}</strong> form{selectedFormIds.length === 1 ? '' : 's'}, including all form versions, fields, logic rules, collected responses, and submitted data. This action <strong className="text-red-400 font-semibold">cannot be undone</strong>.
+              </p>
+            </div>
+
+            {bulkDeleteError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">
+                {bulkDeleteError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-[#2A2D35]">
+              <button
+                onClick={() => {
+                  setShowBulkDeleteModal(false);
+                  setBulkDeleteError(null);
+                }}
+                disabled={isBulkDeleting}
+                className="px-4 py-2 border border-[#2A2D35] bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] font-semibold text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmBulkDelete}
+                disabled={isBulkDeleting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                    Deleting {selectedFormIds.length} Forms...
+                  </>
+                ) : (
+                  `Delete ${selectedFormIds.length} Forms`
+                )}
               </button>
             </div>
           </div>
@@ -731,3 +1045,6 @@ const FormsListView = () => {
     </SaaSAppShell>
   );
 };
+
+window.FormsListView = FormsListView;
+

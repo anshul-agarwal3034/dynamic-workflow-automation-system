@@ -4,10 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FormPilotX - Enterprise SaaS Dashboard Overview</title>
+    <link rel="icon" type="image/svg+xml" href="logo.svg" />
+    <!-- PWA Metadata -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121316">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FormPilotX">
+    <link rel="apple-touch-icon" href="logo.svg">
     <!-- React & ReactDOM Standalone -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- QRCode Generator Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- jsPDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>var exports = window.exports = window.exports || {};</script>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -130,32 +143,51 @@
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-platinum-bg text-on-background font-body-md min-h-screen flex antialiased">
+<body class="bg-[#121316] text-[#F5F3EF] font-body-md min-h-screen flex antialiased">
     <div id="root" class="w-full flex min-h-screen"></div>
 
-    <!-- Router & Modular Component Scripts -->
-    <script type="text/babel" src="../src/components/SimpleRouter.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/SharedComponents.jsx?v=17"></script>
-    <script type="text/babel" src="../src/api/formsApi.js?v=17"></script>
-    <script type="text/babel" src="../src/components/Signup.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/SignupVerify.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/Signin.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/ForgotPassword.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/ForgotVerify.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/ForgotReset.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/Home.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/FormsList.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/CreateFormPage.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/FormBuilder.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/FormDetail.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/PublicFormView.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/SubmissionsView.jsx?v=17"></script>
-    <script type="text/babel" src="../src/components/FormPilotXAuth.jsx?v=17"></script>
+    <!-- Pre-compiled Modular Component Scripts -->
+    <script src="./dist/i18n.js?v=72"></script>
+    <script src="./dist/SharedComponents.js?v=72"></script>
+    <script src="./dist/SimpleRouter.js?v=72"></script>
+    <script src="./dist/formsApi.js?v=72"></script>
+    <script src="./dist/Signup.js?v=72"></script>
+    <script src="./dist/SignupVerify.js?v=72"></script>
+    <script src="./dist/Signin.js?v=72"></script>
+    <script src="./dist/ForgotPassword.js?v=72"></script>
+    <script src="./dist/ForgotVerify.js?v=72"></script>
+    <script src="./dist/ForgotReset.js?v=72"></script>
+    <script src="./dist/EmbedModal.js?v=72"></script>
+    <script src="./dist/Home.js?v=72"></script>
+    <script src="./dist/FormsList.js?v=72"></script>
+    <script src="./dist/CreateFormPage.js?v=72"></script>
+    <script src="./dist/FormBuilder.js?v=72"></script>
+    <script src="./dist/FormDetail.js?v=72"></script>
+    <script src="./dist/PublicFormView.js?v=72"></script>
+    <script src="./dist/SubmissionsView.js?v=72"></script>
+    <script src="./dist/AnalyticsDashboard.js?v=72"></script>
+    <script src="./dist/SettingsView.js?v=72"></script>
+    <script src="./dist/FormPilotXAuth.js?v=72"></script>
 
     <!-- Mount React Application -->
-    <script type="text/babel">
+    <script>
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<FormPilotXAuthApp />);
+        root.render(React.createElement(FormPilotXAuthApp));
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js')
+            .then((registration) => {
+              console.log('[PWA] ServiceWorker successfully registered with scope:', registration.scope);
+            })
+            .catch((error) => {
+              console.warn('[PWA] ServiceWorker registration failed:', error);
+            });
+        });
+      }
     </script>
 </body>
 </html>

@@ -10,11 +10,17 @@ from app.schemas.conditional_rule import ConditionalRuleResponse
 class FormCreate(BaseModel):
     title: str = Field(..., min_length=1)
     description: Optional[str] = None
+    max_submissions: Optional[int] = None
+    closes_at: Optional[datetime] = None
+    closed_message: Optional[str] = "This form is no longer accepting new submissions."
 
 
 class FormUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    max_submissions: Optional[int] = None
+    closes_at: Optional[datetime] = None
+    closed_message: Optional[str] = None
 
 
 class FormVersionResponse(BaseModel):
@@ -45,6 +51,10 @@ class FormResponse(BaseModel):
     description: Optional[str] = None
     status: str
     share_slug: Optional[str] = None
+    retention_days: Optional[int] = None
+    max_submissions: Optional[int] = None
+    closes_at: Optional[datetime] = None
+    closed_message: Optional[str] = "This form is no longer accepting new submissions."
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
@@ -67,6 +77,19 @@ class PublicFormResponse(BaseModel):
     published_at: Optional[datetime] = None
     fields: List[FieldResponse] = []
     rules: List[ConditionalRuleResponse] = []
+    is_closed: bool = False
+    closed_message: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class BulkFormDeleteRequest(BaseModel):
+    form_ids: List[uuid.UUID]
+
+
+class BulkFormDeleteResponse(BaseModel):
+    success: bool
+    deleted_count: int
+    message: str
+
 

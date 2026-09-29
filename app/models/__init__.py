@@ -7,6 +7,7 @@ from app.models.conditional_rule import ConditionalRule
 from app.models.submission import Submission
 from app.models.response_value import ResponseValue
 from app.models.uploaded_file import UploadedFile
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "User",
@@ -18,4 +19,5 @@ __all__ = [
     "Submission",
     "ResponseValue",
     "UploadedFile",
+    "AuditLog",
 ]

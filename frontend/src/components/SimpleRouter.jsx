@@ -9,14 +9,16 @@ const getHashPath = () => {
   const hash = window.location.hash;
   if (!hash || hash === '#' || hash === '#/' || hash === '#') {
     const token = localStorage.getItem('auth_token');
-    return token ? '/forms' : '/signin';
+    return token ? '/home' : '/signin';
   }
   let path = hash.startsWith('#') ? hash.slice(1) : hash;
-  if (!path || path === '/') {
+  const qIdx = path.indexOf('?');
+  const basePath = qIdx !== -1 ? path.slice(0, qIdx) : path;
+  if (!basePath || basePath === '/') {
     const token = localStorage.getItem('auth_token');
-    return token ? '/forms' : '/signin';
+    return token ? '/home' : '/signin';
   }
-  return path;
+  return basePath;
 };
 
 const useHashRoute = () => {
@@ -79,7 +81,7 @@ const Router = ({ routes }) => {
 
   // Fallback matching if route was not matched
   if (!matchedRoute) {
-    const fallbackPath = localStorage.getItem('auth_token') ? '/forms' : '/signin';
+    const fallbackPath = localStorage.getItem('auth_token') ? '/home' : '/signin';
     for (const route of routes) {
       const params = matchRoute(route.path, fallbackPath);
       if (params !== null) {
@@ -93,7 +95,7 @@ const Router = ({ routes }) => {
   React.useEffect(() => {
     if (!matchedRoute) {
       const token = localStorage.getItem('auth_token');
-      navigate(token ? '/forms' : '/signin');
+      navigate(token ? '/home' : '/signin');
     }
   }, [currentPath, matchedRoute]);
 

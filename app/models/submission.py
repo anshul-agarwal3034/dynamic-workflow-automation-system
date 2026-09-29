@@ -1,6 +1,6 @@
 import uuid
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -18,12 +18,24 @@ class Submission(Base):
         nullable=False,
         index=True
     )
-    submitted_at = Column(
+    started_at = Column(
         DateTime(timezone=True),
-        nullable=False,
+        nullable=True,
         server_default=func.now()
     )
+    submitted_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+    status = Column(
+        String(50),
+        nullable=False,
+        default='completed',
+        server_default='completed'
+    )
     completion_time_seconds = Column(Integer, nullable=True)
+    response_data = Column(JSONB, nullable=True, default=dict)
 
     form_version = relationship("FormVersion", back_populates="submissions")
     response_values = relationship("ResponseValue", back_populates="submission", cascade="all, delete-orphan", passive_deletes=True)
+

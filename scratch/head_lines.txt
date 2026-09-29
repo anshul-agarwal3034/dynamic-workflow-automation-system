@@ -1,0 +1,30 @@
+511:                                   <button
+512:                                     onClick={(e) => {
+513:                                       e.stopPropagation();
+514:                                       setOpenMenuFormId(null);
+515:                                       setDeleteModalForm(form);
+516:                                     }}
+517:                                     className="w-full text-left px-3 py-2 text-xs font-bold text-error hover:bg-error-container/40 rounded-xl transition-colors flex items-center gap-2"
+518:                                   >
+519:                                     <span>🗑️</span> Delete Form
+520:                                   </button>
+521:                                 </div>
+522:                               </>
+523:                             )}
+524:                           </div>
+525:                         </td>
+526:                       </tr>
+527:                     );
+528:                   })}
+529:                 </tbody>
+530:               </table>
+531:             </div>
+532:           </div>
+533:         )}
+534:       </div>
+535: 
+536:       {/* Share Form Link Modal */}
+537:       {shareModalForm && (
+538:         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+539:           <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-md w-full p-6 text-left space-y-4">
+540:             <div className="flex items-center justify-between border-b border-ash-border pb-3">

@@ -44,8 +44,9 @@ const SignupView = () => {
 
     setLoading(true);
     try {
+      const apiBase = (typeof window !== 'undefined' && window.API_BASE_URL) || '';
       // 1. Create account via POST /auth/signup
-      const response = await fetch('http://127.0.0.1:8000/auth/signup', {
+      const response = await fetch(`${apiBase}/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,7 +67,7 @@ const SignupView = () => {
       }
 
       // 2. Direct Auto-Login via POST /auth/signin
-      const loginResponse = await fetch('http://127.0.0.1:8000/auth/signin', {
+      const loginResponse = await fetch(`${apiBase}/auth/signin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -108,7 +109,7 @@ const SignupView = () => {
           <div className="relative z-10">
             <div className="flex items-center gap-sm mb-3xl">
               <span className="material-symbols-outlined text-[32px] text-surface-bright" style={{ fontVariationSettings: "'FILL' 1" }}>hexagon</span>
-              <span className="font-headline-md text-headline-md font-black tracking-tight text-surface-bright">FormPilotX</span>
+              <span className="font-headline-md text-headline-md font-black tracking-tight text-surface-bright">FormPilot<span className="text-[#DFB257]">X</span></span>
             </div>
             <h2 className="font-display-lg text-display-lg text-surface-bright mb-lg font-black leading-tight">Enterprise Data Collection, Perfected.</h2>
             <p className="font-body-lg text-body-lg text-secondary-fixed-dim">
@@ -126,7 +127,7 @@ const SignupView = () => {
           {/* Mobile Header */}
           <div className="md:hidden flex items-center justify-center gap-sm mb-xl">
             <span className="material-symbols-outlined text-[28px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>hexagon</span>
-            <span className="font-headline-md text-headline-md font-black tracking-tight text-on-surface">FormPilotX</span>
+            <span className="font-headline-md text-headline-md font-black tracking-tight text-on-surface">FormPilot<span className="text-[#DFB257]">X</span></span>
           </div>
 
           <div className="mb-xl">

@@ -23,6 +23,12 @@ const FormBuilderView = ({ id }) => {
 
   // Modals & Menu State
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+  const [settingsMaxSubmissions, setSettingsMaxSubmissions] = React.useState('');
+  const [settingsClosesAt, setSettingsClosesAt] = React.useState('');
+  const [settingsClosedMessage, setSettingsClosedMessage] = React.useState('');
+  const [savingSettings, setSavingSettings] = React.useState(false);
+  const [settingsSuccess, setSettingsSuccess] = React.useState('');
+  const [settingsError, setSettingsError] = React.useState('');
   const [showTemplateMenu, setShowTemplateMenu] = React.useState(false);
   const [pendingTemplateKey, setPendingTemplateKey] = React.useState(null);
   const [showTemplateConfirmModal, setShowTemplateConfirmModal] = React.useState(false);
@@ -98,6 +104,11 @@ const FormBuilderView = ({ id }) => {
       setForm(data);
       setEditTitle(data.title);
       setEditDescription(data.description || '');
+      if (data) {
+        setSettingsMaxSubmissions(data.max_submissions ? String(data.max_submissions) : '');
+        setSettingsClosesAt(data.closes_at ? data.closes_at.slice(0, 16) : '');
+        setSettingsClosedMessage(data.closed_message || '');
+      }
       const sortedVersions = data && data.versions && data.versions.length > 0
         ? [...data.versions].sort((a, b) => (b.version_number || 0) - (a.version_number || 0))
         : [];
@@ -186,6 +197,38 @@ const FormBuilderView = ({ id }) => {
       setRulesError(err.message || 'Failed to delete rule.');
     } finally {
       setDeletingRuleId(null);
+    }
+  };
+
+  const openSettingsModal = () => {
+    if (form) {
+      setSettingsMaxSubmissions(form.max_submissions ? String(form.max_submissions) : '');
+      setSettingsClosesAt(form.closes_at ? form.closes_at.slice(0, 16) : '');
+      setSettingsClosedMessage(form.closed_message || '');
+    }
+    setSettingsError('');
+    setSettingsSuccess('');
+    setShowSettingsModal(true);
+  };
+
+  const handleSaveSettings = async () => {
+    setSettingsError('');
+    setSettingsSuccess('');
+    setSavingSettings(true);
+    try {
+      const payload = {
+        max_submissions: settingsMaxSubmissions !== '' ? parseInt(settingsMaxSubmissions, 10) : null,
+        closes_at: settingsClosesAt ? new Date(settingsClosesAt).toISOString() : null,
+        closed_message: settingsClosedMessage.trim() || null
+      };
+      const updated = await formsApi.updateForm(form.id, payload);
+      setForm(updated);
+      setSettingsSuccess('Settings saved successfully!');
+      setTimeout(() => setSettingsSuccess(''), 3000);
+    } catch (err) {
+      setSettingsError(err.message || 'Failed to save settings.');
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -624,6 +667,7 @@ const FormBuilderView = ({ id }) => {
   };
 
   const confirmPublishForm = async () => {
+    if (fields.length === 0) return;
     setActionError('');
     setPublishing(true);
     try {
@@ -636,7 +680,8 @@ const FormBuilderView = ({ id }) => {
         setPublishedShareUrl(linkData.share_url);
       } catch (linkErr) {
         if (published.share_slug) {
-          setPublishedShareUrl(`http://127.0.0.1:8000/app/public/index.html#/public/forms/${published.share_slug}`);
+          const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : (window.API_BASE_URL || 'http://localhost:8000');
+          setPublishedShareUrl(`${origin}/app/public/index.html#/public/forms/${published.share_slug}`);
         }
       }
 
@@ -761,20 +806,20 @@ const FormBuilderView = ({ id }) => {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'draft':
-        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-warm-amber/10 text-warm-amber border border-warm-amber/20 rounded-full">Draft</span>;
+        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded-full">Draft</span>;
       case 'published':
-        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-mint-emerald/10 text-mint-emerald border border-mint-emerald/20 rounded-full">Published</span>;
+        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-full">Published</span>;
       case 'archived':
-        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-silver-container text-secondary border border-ash-border rounded-full">Archived</span>;
+        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-[#20232B] text-[#949089] border border-[#2A2D35] rounded-full">Archived</span>;
       default:
-        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-silver-container text-primary rounded-full">{status}</span>;
+        return <span className="px-2.5 py-0.5 text-[10px] font-bold bg-[#20232B] text-[#F5F3EF] rounded-full border border-[#2A2D35]">{status}</span>;
     }
   };
 
   if (loading) {
     return (
       <SaaSAppShell activeTab="forms">
-        <div className="py-16 text-center text-xs font-semibold text-secondary">Loading FormPilotX Builder Studio...</div>
+        <div className="py-16 text-center text-xs font-semibold text-[#949089]">Loading FormPilotX Builder Studio...</div>
       </SaaSAppShell>
     );
   }
@@ -782,10 +827,10 @@ const FormBuilderView = ({ id }) => {
   if (error || !form) {
     return (
       <SaaSAppShell activeTab="forms">
-        <div className="p-5 bg-error-container/40 border border-error/20 rounded-2xl text-xs text-error font-medium mb-4">
+        <div className="p-5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-xs text-rose-400 font-medium mb-4">
           {error || 'Form not found'}
         </div>
-        <button onClick={() => navigate('/forms')} className="px-4 py-2 bg-charcoal-dark text-on-primary text-xs font-bold rounded-xl">
+        <button onClick={() => navigate('/forms')} className="px-4 py-2 bg-gradient-to-r from-[#DFB257] to-[#E2B858] text-[#121316] text-xs font-bold rounded-xl cursor-pointer">
           ← Back to Portfolio
         </button>
       </SaaSAppShell>
@@ -794,70 +839,70 @@ const FormBuilderView = ({ id }) => {
 
   return (
     <SaaSAppShell activeTab="forms">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="p-3 sm:p-6 w-full max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Studio Header Toolbar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-ash-border pb-4">
-          <div className="flex items-center gap-3">
+        <div className="px-3 py-2 sm:px-6 sm:py-3.5 border-b border-[#2A2D35] flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={() => navigate('/forms')}
-              className="text-xs font-bold text-secondary hover:text-primary transition-colors flex items-center gap-1"
+              className="text-xs font-bold text-[#949089] hover:text-[#F5F3EF] transition-colors flex items-center gap-1 cursor-pointer shrink-0"
             >
               ← Portfolio
             </button>
-            <span className="text-ash-border">|</span>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-black text-charcoal-dark">{form.title}</h1>
-              <span className="font-mono text-[10px] text-secondary bg-silver-container px-2 py-0.5 rounded-lg border border-ash-border">
+            <span className="text-[#2A2D35]">|</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-sm sm:text-lg font-semibold bg-transparent border-none focus:ring-0 max-w-[140px] sm:max-w-xs truncate text-[#F5F3EF]">{form.title}</h1>
+              <span className="font-mono text-[10px] text-[#949089] bg-[#16181D] px-2 py-0.5 rounded-lg border border-[#2A2D35] shrink-0">
                 v{activeVersion ? activeVersion.version_number : 1}
               </span>
-              {getStatusBadge(form.status)}
+              <span className="shrink-0">{getStatusBadge(form.status)}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 relative">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 relative shrink-0">
             {/* ⚡ 1-Click Templates Dropdown */}
             {!isArchived && (
               <div className="relative">
                 <button
                   onClick={() => setShowTemplateMenu(!showTemplateMenu)}
                   disabled={applyingTemplate}
-                  className="px-3.5 py-1.5 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+                  className="px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] font-bold rounded-xl border border-[#2A2D35] shadow-sm transition-all flex items-center gap-1 sm:gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <span>⚡</span>
-                  <span>{applyingTemplate ? 'Applying...' : '1-Click Templates'}</span>
+                  <span className="hidden sm:inline">{applyingTemplate ? 'Applying...' : '1-Click Templates'}</span>
                   <span>▼</span>
                 </button>
 
                 {showTemplateMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowTemplateMenu(false)} />
-                    <div className="absolute right-0 top-10 w-72 bg-surface rounded-2xl shadow-2xl border border-ash-border z-50 p-2 space-y-1">
-                      <div className="px-3 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider border-b border-ash-border">
+                    <div className="absolute right-0 top-10 w-72 bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] z-50 p-2 space-y-1">
+                      <div className="px-3 py-2 text-[10px] font-bold text-[#949089] uppercase tracking-wider border-b border-[#2A2D35]">
                         Pre-built Form Templates
                       </div>
                       
                       <button
                         onClick={() => handleSelectTemplate('customer_feedback')}
-                        className="w-full text-left p-2.5 hover:bg-silver-container rounded-xl transition-colors space-y-0.5"
+                        className="w-full text-left p-2.5 hover:bg-[#20232B] rounded-xl transition-colors space-y-0.5 cursor-pointer"
                       >
-                        <p className="font-bold text-xs text-charcoal-dark">⭐ Customer Feedback Survey</p>
-                        <p className="text-[10px] text-secondary">4 fields (Name, Email, Rating 1-5, Feedback)</p>
+                        <p className="font-bold text-xs text-[#F5F3EF]">⭐ Customer Feedback Survey</p>
+                        <p className="text-[10px] text-[#949089]">4 fields (Name, Email, Rating 1-5, Feedback)</p>
                       </button>
 
                       <button
                         onClick={() => handleSelectTemplate('event_registration')}
-                        className="w-full text-left p-2.5 hover:bg-silver-container rounded-xl transition-colors space-y-0.5"
+                        className="w-full text-left p-2.5 hover:bg-[#20232B] rounded-xl transition-colors space-y-0.5 cursor-pointer"
                       >
-                        <p className="font-bold text-xs text-charcoal-dark">🎟️ Event Registration</p>
-                        <p className="text-[10px] text-secondary">5 fields (Name, Email, Phone, Pass Type, Dietary)</p>
+                        <p className="font-bold text-xs text-[#F5F3EF]">🎟️ Event Registration</p>
+                        <p className="text-[10px] text-[#949089]">5 fields (Name, Email, Phone, Pass Type, Dietary)</p>
                       </button>
 
                       <button
                         onClick={() => handleSelectTemplate('employee_onboarding')}
-                        className="w-full text-left p-2.5 hover:bg-silver-container rounded-xl transition-colors space-y-0.5"
+                        className="w-full text-left p-2.5 hover:bg-[#20232B] rounded-xl transition-colors space-y-0.5 cursor-pointer"
                       >
-                        <p className="font-bold text-xs text-charcoal-dark">🏢 Employee Onboarding</p>
-                        <p className="text-[10px] text-secondary">6 fields (Name, Email, Dept, Mode, Date of Joining, Emergency)</p>
+                        <p className="font-bold text-xs text-[#F5F3EF]">🏢 Employee Onboarding</p>
+                        <p className="text-[10px] text-[#949089]">6 fields (Name, Email, Dept, Mode, Date of Joining, Emergency)</p>
                       </button>
                     </div>
                   </>
@@ -870,7 +915,7 @@ const FormBuilderView = ({ id }) => {
               <button
                 onClick={() => setShowClearCanvasModal(true)}
                 disabled={clearingCanvas || fields.length === 0}
-                className="px-3.5 py-1.5 bg-silver-container hover:bg-ash-border text-charcoal-dark font-bold text-xs rounded-xl transition-all border border-ash-border shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                className="hidden sm:flex px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] font-bold rounded-xl transition-all border border-[#2A2D35] shadow-sm items-center gap-1 sm:gap-2 disabled:opacity-50 cursor-pointer"
                 title="Clear all questions from canvas"
               >
                 <span>🗑️</span>
@@ -881,17 +926,26 @@ const FormBuilderView = ({ id }) => {
             {!isArchived && (
               <button
                 onClick={() => setShowPublishModal(true)}
-                className="px-4 py-1.5 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+                className="px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-gradient-to-r from-[#DFB257] to-[#E2B858] hover:brightness-110 text-[#121316] font-bold rounded-xl transition-all shadow-sm flex items-center gap-1 sm:gap-2 cursor-pointer"
               >
-                <span>🚀</span> Publish Form
+                <span>🚀</span> <span>Publish</span>
               </button>
             )}
+
+            <button
+              onClick={openSettingsModal}
+              className="px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] font-bold rounded-xl transition-all border border-[#2A2D35] shadow-sm flex items-center gap-1 sm:gap-2 cursor-pointer"
+              title="Form Settings & Availability"
+            >
+              <span className="material-symbols-outlined text-[16px] text-[#E2B858]">tune</span>
+              <span className="hidden sm:inline">Settings</span>
+            </button>
 
             {/* 3-Dot Action Menu */}
             <div className="relative">
               <button
                 onClick={() => setShowThreeDotMenu(!showThreeDotMenu)}
-                className="w-8 h-8 flex items-center justify-center bg-surface hover:bg-silver-container text-charcoal-dark font-black text-base rounded-xl transition-all border border-ash-border shadow-sm"
+                className="w-8 h-8 flex items-center justify-center bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] font-black text-sm sm:text-base rounded-xl transition-all border border-[#2A2D35] shadow-sm cursor-pointer"
                 title="Form Actions"
               >
                 ⋮
@@ -900,13 +954,23 @@ const FormBuilderView = ({ id }) => {
               {showThreeDotMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowThreeDotMenu(false)} />
-                  <div className="absolute right-0 top-10 w-56 bg-surface rounded-2xl shadow-2xl border border-ash-border z-50 p-2 space-y-1">
+                  <div className="absolute right-0 top-10 w-56 bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] z-50 p-2 space-y-1">
+                    <button
+                      onClick={() => {
+                        setShowThreeDotMenu(false);
+                        openSettingsModal();
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>⚙️</span> Form Settings
+                    </button>
+
                     <button
                       onClick={() => {
                         setShowThreeDotMenu(false);
                         navigate(`/forms/${form.id}/edit`);
                       }}
-                      className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
                     >
                       <span>🎨</span> Open Form Builder
                     </button>
@@ -916,7 +980,7 @@ const FormBuilderView = ({ id }) => {
                         setShowThreeDotMenu(false);
                         handleOpenShareModal();
                       }}
-                      className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
                     >
                       <span>🔗</span> Share Public Link
                     </button>
@@ -926,7 +990,7 @@ const FormBuilderView = ({ id }) => {
                         setShowThreeDotMenu(false);
                         handleOpenVersionsModal();
                       }}
-                      className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
                     >
                       <span>📜</span> Version History
                     </button>
@@ -938,7 +1002,7 @@ const FormBuilderView = ({ id }) => {
                           handleUnarchiveForm();
                         }}
                         disabled={unarchiving}
-                        className="w-full text-left px-3 py-2 text-xs font-bold text-mint-emerald hover:bg-mint-emerald/10 rounded-xl transition-colors flex items-center gap-2"
+                        className="w-full text-left px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
                       >
                         <span>🔄</span> Unarchive Form
                       </button>
@@ -948,20 +1012,20 @@ const FormBuilderView = ({ id }) => {
                           setShowThreeDotMenu(false);
                           setShowArchiveModal(true);
                         }}
-                        className="w-full text-left px-3 py-2 text-xs font-bold text-charcoal-dark hover:bg-silver-container rounded-xl transition-colors flex items-center gap-2"
+                        className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5F3EF] hover:bg-[#20232B] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
                       >
                         <span>📦</span> Archive Form
                       </button>
                     )}
 
-                    <div className="border-t border-ash-border my-1" />
+                    <div className="border-t border-[#2A2D35] my-1" />
 
                     <button
                       onClick={() => {
                         setShowThreeDotMenu(false);
                         setShowDeleteFormModal(true);
                       }}
-                      className="w-full text-left px-3 py-2 text-xs font-bold text-error hover:bg-error-container/40 rounded-xl transition-colors flex items-center gap-2"
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
                     >
                       <span>🗑️</span> Delete Form
                     </button>
@@ -973,19 +1037,19 @@ const FormBuilderView = ({ id }) => {
         </div>
 
         {actionError && (
-          <div className="p-4 bg-error-container/40 border border-error/20 rounded-xl text-xs text-error font-medium">
+          <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-400 font-medium">
             {actionError}
           </div>
         )}
 
         {/* Header Metadata Details Card */}
-        <div className="bg-surface border border-ash-border rounded-2xl p-6 shadow-sm space-y-3">
+        <div className="bg-[#1A1D24] border border-[#2A2D35] rounded-2xl p-6 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Form Metadata Specification</span>
+            <span className="text-[10px] font-bold text-[#949089] uppercase tracking-wider">Form Metadata Specification</span>
             {!isArchived && (
               <button
                 onClick={() => setIsEditingHeader(!isEditingHeader)}
-                className="text-xs font-bold text-electric-indigo hover:underline transition-colors"
+                className="text-xs font-bold text-[#E2B858] hover:underline transition-colors cursor-pointer"
               >
                 {isEditingHeader ? 'Cancel Edit' : '✏️ Edit Title & Description'}
               </button>
@@ -995,28 +1059,28 @@ const FormBuilderView = ({ id }) => {
           {isEditingHeader && !isArchived ? (
             <div className="space-y-4 pt-2">
               <div>
-                <label className="block text-xs font-bold text-charcoal-dark mb-1">Title</label>
+                <label className="block text-xs font-bold text-[#F5F3EF] mb-1">Title</label>
                 <input
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-surface border border-ash-border rounded-xl text-xs font-bold text-charcoal-dark focus:outline-none focus:border-charcoal-dark"
+                  className="w-full px-3.5 py-2 bg-[#16181D] border border-[#2A2D35] rounded-xl text-xs font-bold text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-charcoal-dark mb-1">Description</label>
+                <label className="block text-xs font-bold text-[#F5F3EF] mb-1">Description</label>
                 <textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
                   rows={2}
-                  className="w-full p-3.5 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark resize-none"
+                  className="w-full p-3.5 bg-[#16181D] border border-[#2A2D35] rounded-xl text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858] resize-none"
                 />
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleSaveHeader}
                   disabled={savingHeader}
-                  className="px-4 py-2 bg-charcoal-dark text-on-primary text-xs font-bold rounded-xl shadow-sm disabled:opacity-50"
+                  className="px-4 py-2 bg-gradient-to-r from-[#DFB257] to-[#E2B858] hover:brightness-110 text-[#121316] text-xs font-bold rounded-xl shadow-sm disabled:opacity-50 cursor-pointer"
                 >
                   {savingHeader ? 'Saving Details...' : 'Save Details'}
                 </button>
@@ -1024,8 +1088,8 @@ const FormBuilderView = ({ id }) => {
             </div>
           ) : (
             <div>
-              <h2 className="text-xl font-black text-charcoal-dark">{form.title}</h2>
-              <p className="text-xs text-secondary mt-1">{form.description || 'No description provided.'}</p>
+              <h2 className="text-xl font-black text-[#F5F3EF]">{form.title}</h2>
+              <p className="text-xs text-[#949089] mt-1">{form.description || 'No description provided.'}</p>
             </div>
           )}
         </div>
@@ -1034,12 +1098,12 @@ const FormBuilderView = ({ id }) => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Palette (w-72) */}
           {!isArchived && (
-            <div className="lg:col-span-4 bg-surface border border-ash-border rounded-2xl p-6 shadow-sm space-y-4">
-              <div className="border-b border-ash-border pb-3">
-                <h3 className="font-bold text-sm text-charcoal-dark flex items-center gap-2">
+            <div className="lg:col-span-4 bg-[#1A1D24] border border-[#2A2D35] rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="border-b border-[#2A2D35] pb-3">
+                <h3 className="font-bold text-sm text-[#F5F3EF] flex items-center gap-2">
                   <span>🛠️</span> Field Type Palette
                 </h3>
-                <p className="text-[11px] text-secondary mt-1">Click a field card to append it to your canvas:</p>
+                <p className="text-[11px] text-[#949089] mt-1">Click a field card to append it to your canvas:</p>
               </div>
 
               {/* Clickable Quick Field Cards */}
@@ -1049,16 +1113,16 @@ const FormBuilderView = ({ id }) => {
                     key={ft.type}
                     type="button"
                     onClick={() => handleOpenAddFieldModal(ft)}
-                    className="p-3 rounded-xl border border-ash-border bg-surface hover:bg-silver-container/80 text-left text-xs transition-all flex items-center justify-between group shadow-sm"
+                    className="p-3 rounded-xl border border-[#2A2D35] bg-[#16181D] hover:bg-[#20232B] hover:border-[#E2B858]/40 text-left text-xs transition-all flex items-center justify-between group shadow-sm cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5">
                       <span className="text-base">{ft.icon}</span>
                       <div>
-                        <p className="font-bold text-charcoal-dark group-hover:text-primary">{ft.label}</p>
-                        <p className="text-[10px] text-secondary">{ft.desc}</p>
+                        <p className="font-bold text-[#F5F3EF] group-hover:text-[#E2B858] transition-colors">{ft.label}</p>
+                        <p className="text-[10px] text-[#949089]">{ft.desc}</p>
                       </div>
                     </div>
-                    <span className="text-xs text-secondary group-hover:text-charcoal-dark font-bold">+ Add</span>
+                    <span className="text-xs text-[#949089] group-hover:text-[#E2B858] font-bold transition-colors">+ Add</span>
                   </button>
                 ))}
               </div>
@@ -1067,16 +1131,16 @@ const FormBuilderView = ({ id }) => {
 
           {/* Center Canvas: Interactive Question List */}
           <div className={`${isArchived ? 'lg:col-span-12' : 'lg:col-span-8'} space-y-4`}>
-            <div className="bg-surface border border-ash-border rounded-2xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-5 pb-3 border-b border-ash-border flex-wrap gap-3">
+            <div className="bg-[#1A1D24] border border-[#2A2D35] rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-5 pb-3 border-b border-[#2A2D35] flex-wrap gap-3">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setActiveStudioTab('fields')}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                       activeStudioTab === 'fields'
-                        ? 'bg-charcoal-dark text-on-primary shadow-sm'
-                        : 'bg-silver-container/60 hover:bg-silver-container text-secondary'
+                        ? 'bg-gradient-to-r from-[#DFB257] to-[#E2B858] text-[#121316] shadow-sm'
+                        : 'bg-[#20232B] hover:bg-[#2A2D35] text-[#949089] hover:text-[#F5F3EF] border border-[#2A2D35]'
                     }`}
                   >
                     <span>📄</span> Questions ({fields.length})
@@ -1084,16 +1148,16 @@ const FormBuilderView = ({ id }) => {
                   <button
                     type="button"
                     onClick={() => setActiveStudioTab('rules')}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                       activeStudioTab === 'rules'
-                        ? 'bg-charcoal-dark text-on-primary shadow-sm'
-                        : 'bg-silver-container/60 hover:bg-silver-container text-secondary'
+                        ? 'bg-gradient-to-r from-[#DFB257] to-[#E2B858] text-[#121316] shadow-sm'
+                        : 'bg-[#20232B] hover:bg-[#2A2D35] text-[#949089] hover:text-[#F5F3EF] border border-[#2A2D35]'
                     }`}
                   >
                     <span>🔀</span> Conditional Logic ({rules.length})
                   </button>
                 </div>
-                <span className="text-[11px] text-secondary">
+                <span className="text-[11px] text-[#949089]">
                   {activeStudioTab === 'fields'
                     ? 'Click any card to edit question details'
                     : 'Show, hide, or require questions dynamically'}
@@ -1104,12 +1168,12 @@ const FormBuilderView = ({ id }) => {
               {activeStudioTab === 'fields' && (
                 <>
                   {fields.length === 0 ? (
-                    <div className="p-12 text-center bg-silver-container/30 border border-dashed border-ash-border rounded-2xl space-y-3">
-                      <div className="w-12 h-12 rounded-2xl bg-silver-container text-secondary flex items-center justify-center text-xl mx-auto border border-ash-border">
+                    <div className="p-12 text-center bg-[#1A1D24] border border-dashed border-[#2A2D35] rounded-2xl space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-[#20232B] text-[#949089] flex items-center justify-center text-xl mx-auto border border-[#2A2D35]">
                         ✍️
                       </div>
-                      <p className="text-xs font-bold text-charcoal-dark">Form Canvas is Empty</p>
-                      <p className="text-[11px] text-secondary">Select a field type from the left palette or use ⚡ 1-Click Templates to populate questions.</p>
+                      <p className="text-xs font-bold text-[#F5F3EF]">Form Canvas is Empty</p>
+                      <p className="text-[11px] text-[#949089]">Select a field type from the left palette or use ⚡ 1-Click Templates to populate questions.</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -1124,34 +1188,34 @@ const FormBuilderView = ({ id }) => {
                                 handleStartEditField(field);
                               }
                             }}
-                            className={`p-5 border rounded-2xl transition-all shadow-sm flex flex-col gap-4 cursor-pointer ${
+                            className={`p-3.5 sm:p-5 rounded-xl mb-3 sm:mb-4 border transition-all shadow-sm flex flex-col gap-3 sm:gap-4 cursor-pointer ${
                               isEditing
-                                ? 'bg-surface border-charcoal-dark ring-2 ring-silver-container'
-                                : 'bg-surface border-ash-border hover:border-charcoal-dark/40 hover:shadow-md'
+                                ? 'bg-[#1A1D24] border-[#E2B858] ring-2 ring-[#E2B858]/20'
+                                : 'bg-[#1A1D24] border-[#2A2D35] hover:border-[#E2B858]/50 hover:shadow-md'
                             }`}
                           >
                             {/* Question Card Top Action Bar */}
-                            <div className="flex items-center justify-between gap-2 border-b border-ash-border pb-3">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-bold text-charcoal-dark">{idx + 1}. {field.label}</span>
+                            <div className="flex items-center justify-between gap-2 border-b border-[#2A2D35] pb-2 sm:pb-3">
+                              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-[#F5F3EF]">{idx + 1}. {field.label}</span>
                                 {field.is_required && (
-                                  <span className="text-[10px] font-bold text-error bg-error-container/40 px-2 py-0.5 rounded border border-error/20">
+                                  <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 px-1.5 sm:px-2 py-0.5 rounded border border-rose-500/20">
                                     Required
                                   </span>
                                 )}
-                                <span className="text-[10px] font-semibold text-secondary bg-silver-container px-2 py-0.5 rounded-full uppercase border border-ash-border">
+                                <span className="text-[10px] font-semibold text-[#949089] bg-[#20232B] px-1.5 sm:px-2 py-0.5 rounded-full uppercase border border-[#2A2D35]">
                                   {field.field_type}
                                 </span>
                               </div>
 
                               {!isArchived && (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1 sm:gap-2">
                                   {/* Reorder Arrows */}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleMoveField(idx, 'up'); }}
                                     disabled={idx === 0}
                                     title="Move Up"
-                                    className="w-6 h-6 rounded-md bg-silver-container border border-ash-border text-xs text-charcoal-dark hover:bg-ash-border disabled:opacity-30 flex items-center justify-center font-bold"
+                                    className="p-1.5 rounded-md bg-[#20232B] border border-[#2A2D35] text-xs text-[#F5F3EF] hover:bg-[#2A2D35] disabled:opacity-30 flex items-center justify-center font-bold"
                                   >
                                     ▲
                                   </button>
@@ -1159,7 +1223,7 @@ const FormBuilderView = ({ id }) => {
                                     onClick={(e) => { e.stopPropagation(); handleMoveField(idx, 'down'); }}
                                     disabled={idx === fields.length - 1}
                                     title="Move Down"
-                                    className="w-6 h-6 rounded-md bg-silver-container border border-ash-border text-xs text-charcoal-dark hover:bg-ash-border disabled:opacity-30 flex items-center justify-center font-bold"
+                                    className="p-1.5 rounded-md bg-[#20232B] border border-[#2A2D35] text-xs text-[#F5F3EF] hover:bg-[#2A2D35] disabled:opacity-30 flex items-center justify-center font-bold"
                                   >
                                     ▼
                                   </button>
@@ -1167,7 +1231,7 @@ const FormBuilderView = ({ id }) => {
                                   {/* Edit Toggle */}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); isEditing ? setEditingFieldId(null) : handleStartEditField(field); }}
-                                    className="px-3 py-1 text-xs font-bold text-electric-indigo bg-silver-container hover:bg-ash-border rounded-lg transition-colors"
+                                    className="p-1.5 px-2.5 sm:px-3 text-xs font-bold text-[#E2B858] bg-[#20232B] hover:bg-[#2A2D35] border border-[#2A2D35] rounded-lg transition-colors"
                                   >
                                     {isEditing ? 'Close' : '✏️ Edit'}
                                   </button>
@@ -1175,7 +1239,7 @@ const FormBuilderView = ({ id }) => {
                                   {/* Delete Action */}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setDeleteFieldId(field.id); }}
-                                    className="px-2.5 py-1 text-xs font-bold text-error hover:bg-error-container/40 rounded-lg transition-colors"
+                                    className="p-1.5 px-2 sm:px-2.5 text-xs font-bold text-rose-400 hover:bg-rose-500/20 rounded-lg transition-colors"
                                   >
                                     Delete
                                   </button>
@@ -1187,29 +1251,29 @@ const FormBuilderView = ({ id }) => {
                             {isEditing ? (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="space-y-4 pt-1 bg-silver-container/30 p-4 rounded-xl border border-ash-border cursor-default"
+                                className="space-y-4 pt-1 bg-[#16181D] p-3.5 sm:p-4 rounded-xl border border-[#2A2D35] cursor-default"
                               >
                                 <div>
-                                  <label className="block text-xs font-bold text-charcoal-dark mb-1">
-                                    Question Label <span className="text-error">*</span>
+                                  <label className="block text-xs font-bold text-[#F5F3EF] mb-1">
+                                    Question Label <span className="text-rose-400">*</span>
                                   </label>
                                   <input
                                     type="text"
                                     value={editFieldState.label}
                                     onChange={(e) => setEditFieldState({ ...editFieldState, label: e.target.value })}
-                                    className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-bold focus:outline-none focus:border-charcoal-dark"
+                                    className="w-full text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-xl text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                                   />
                                 </div>
 
                                 <div>
-                                  <label className="block text-xs font-bold text-charcoal-dark mb-1">Placeholder & Help Text</label>
+                                  <label className="block text-xs font-bold text-[#F5F3EF] mb-1">Placeholder & Help Text</label>
                                   <input
                                     type="text"
                                     placeholder="e.g. Enter response here..."
                                     value={editFieldState.placeholder}
                                     onFocus={(e) => e.target.select()}
                                     onChange={(e) => setEditFieldState({ ...editFieldState, placeholder: e.target.value })}
-                                    className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark"
+                                    className="w-full h-9 px-3 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                                   />
                                 </div>
 
@@ -1219,18 +1283,18 @@ const FormBuilderView = ({ id }) => {
                                     id={`req_${field.id}`}
                                     checked={editFieldState.is_required}
                                     onChange={(e) => setEditFieldState({ ...editFieldState, is_required: e.target.checked })}
-                                    className="w-4 h-4 text-charcoal-dark border-ash-border rounded"
+                                    className="w-4 h-4 text-[#E2B858] bg-[#20232B] border-[#2A2D35] rounded focus:ring-0"
                                   />
-                                  <label htmlFor={`req_${field.id}`} className="text-xs font-bold text-charcoal-dark cursor-pointer">
+                                  <label htmlFor={`req_${field.id}`} className="text-xs font-bold text-[#F5F3EF] cursor-pointer">
                                     Required Toggle Switch
                                   </label>
                                 </div>
 
                                 {/* Dropdown & Checkbox Choices Editor */}
                                 {(field.field_type === 'dropdown' || field.field_type === 'checkbox') && (
-                                  <div className="pt-3 border-t border-ash-border space-y-3">
+                                  <div className="pt-3 border-t border-[#2A2D35] space-y-3">
                                     <div className="flex items-center justify-between">
-                                      <label className="block text-xs font-bold text-charcoal-dark">
+                                      <label className="block text-xs font-bold text-[#F5F3EF]">
                                         Choices Options Editor
                                       </label>
                                       <button
@@ -1239,7 +1303,7 @@ const FormBuilderView = ({ id }) => {
                                           ...editFieldState,
                                           options: [...editFieldState.options, { option_label: '', option_value: '' }]
                                         })}
-                                        className="text-[11px] font-bold text-electric-indigo hover:underline"
+                                        className="text-[11px] font-bold text-[#E2B858] hover:underline"
                                       >
                                         + Add Choice
                                       </button>
@@ -1258,7 +1322,7 @@ const FormBuilderView = ({ id }) => {
                                             updatedOpts[oIdx].option_value = e.target.value.toLowerCase().replace(/\s+/g, '_');
                                             setEditFieldState({ ...editFieldState, options: updatedOpts });
                                           }}
-                                          className="flex-1 h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                          className="flex-1 h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                                         />
                                         {editFieldState.options.length > 1 && (
                                           <button
@@ -1267,7 +1331,7 @@ const FormBuilderView = ({ id }) => {
                                               const updatedOpts = editFieldState.options.filter((_, i) => i !== oIdx);
                                               setEditFieldState({ ...editFieldState, options: updatedOpts });
                                             }}
-                                            className="w-7 h-7 text-error hover:bg-error-container/40 rounded flex items-center justify-center font-bold text-xs"
+                                            className="w-7 h-7 text-rose-400 hover:bg-rose-500/20 rounded flex items-center justify-center font-bold text-xs"
                                           >
                                             ✕
                                           </button>
@@ -1279,13 +1343,13 @@ const FormBuilderView = ({ id }) => {
 
                                 {/* Validation Constraints for Text */}
                                 {field.field_type === 'text' && (
-                                  <div className="pt-3 border-t border-ash-border space-y-2">
-                                    <label className="block text-xs font-bold text-charcoal-dark">
+                                  <div className="pt-3 border-t border-[#2A2D35] space-y-2">
+                                    <label className="block text-xs font-bold text-[#F5F3EF]">
                                       Validation Constraints (Length)
                                     </label>
                                     <div className="grid grid-cols-2 gap-2">
                                       <div>
-                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Min Length</label>
+                                        <label className="block text-[10px] text-[#949089] font-semibold mb-1">Min Length</label>
                                         <input
                                           type="number"
                                           min="0"
@@ -1295,11 +1359,11 @@ const FormBuilderView = ({ id }) => {
                                             ...editFieldState,
                                             validation_config: { ...editFieldState.validation_config, min_length: e.target.value }
                                           })}
-                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                          className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Max Length</label>
+                                        <label className="block text-[10px] text-[#949089] font-semibold mb-1">Max Length</label>
                                         <input
                                           type="number"
                                           min="1"
@@ -1309,7 +1373,7 @@ const FormBuilderView = ({ id }) => {
                                             ...editFieldState,
                                             validation_config: { ...editFieldState.validation_config, max_length: e.target.value }
                                           })}
-                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                          className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                                         />
                                       </div>
                                     </div>
@@ -1318,13 +1382,13 @@ const FormBuilderView = ({ id }) => {
 
                                 {/* Validation Constraints for Number */}
                                 {field.field_type === 'number' && (
-                                  <div className="pt-3 border-t border-ash-border space-y-2">
-                                    <label className="block text-xs font-bold text-charcoal-dark">
+                                  <div className="pt-3 border-t border-[#2A2D35] space-y-2">
+                                    <label className="block text-xs font-bold text-[#F5F3EF]">
                                       Validation Constraints (Range)
                                     </label>
                                     <div className="grid grid-cols-2 gap-2">
                                       <div>
-                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Min Value</label>
+                                        <label className="block text-[10px] text-[#949089] font-semibold mb-1">Min Value</label>
                                         <input
                                           type="number"
                                           placeholder="e.g. 0"
@@ -1333,11 +1397,11 @@ const FormBuilderView = ({ id }) => {
                                             ...editFieldState,
                                             validation_config: { ...editFieldState.validation_config, min_value: e.target.value }
                                           })}
-                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                          className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Max Value</label>
+                                        <label className="block text-[10px] text-[#949089] font-semibold mb-1">Max Value</label>
                                         <input
                                           type="number"
                                           placeholder="e.g. 100"
@@ -1346,7 +1410,7 @@ const FormBuilderView = ({ id }) => {
                                             ...editFieldState,
                                             validation_config: { ...editFieldState.validation_config, max_value: e.target.value }
                                           })}
-                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                          className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                                         />
                                       </div>
                                     </div>
@@ -1355,13 +1419,13 @@ const FormBuilderView = ({ id }) => {
 
                                 {/* Validation Constraints for File */}
                                 {field.field_type === 'file' && (
-                                  <div className="pt-3 border-t border-ash-border space-y-2">
-                                    <label className="block text-xs font-bold text-charcoal-dark">
+                                  <div className="pt-3 border-t border-[#2A2D35] space-y-2">
+                                    <label className="block text-xs font-bold text-[#F5F3EF]">
                                       Validation Constraints (File Upload)
                                     </label>
                                     <div className="space-y-2">
                                       <div>
-                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Allowed Extensions (comma-separated)</label>
+                                        <label className="block text-[10px] text-[#949089] font-semibold mb-1">Allowed Extensions (comma-separated)</label>
                                         <input
                                           type="text"
                                           placeholder=".pdf, .png, .jpg"
@@ -1370,11 +1434,11 @@ const FormBuilderView = ({ id }) => {
                                             ...editFieldState,
                                             validation_config: { ...editFieldState.validation_config, allowed_extensions: e.target.value }
                                           })}
-                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark font-mono"
+                                          className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] font-mono focus:outline-none focus:border-[#E2B858]"
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-[10px] text-secondary font-semibold mb-1">Max Size (MB)</label>
+                                        <label className="block text-[10px] text-[#949089] font-semibold mb-1">Max Size (MB)</label>
                                         <input
                                           type="number"
                                           min="1"
@@ -1385,18 +1449,18 @@ const FormBuilderView = ({ id }) => {
                                             ...editFieldState,
                                             validation_config: { ...editFieldState.validation_config, max_size_mb: e.target.value }
                                           })}
-                                          className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                                          className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                                         />
                                       </div>
                                     </div>
                                   </div>
                                 )}
 
-                                <div className="flex items-center justify-end gap-2 pt-2 border-t border-ash-border">
+                                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#2A2D35]">
                                   <button
                                     type="button"
                                     onClick={() => setEditingFieldId(null)}
-                                    className="px-3.5 py-1.5 bg-silver-container text-primary text-xs font-semibold rounded-xl"
+                                    className="px-3.5 py-1.5 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] text-xs font-semibold rounded-xl"
                                   >
                                     Cancel
                                   </button>
@@ -1404,7 +1468,7 @@ const FormBuilderView = ({ id }) => {
                                     type="button"
                                     onClick={() => handleSaveFieldEdit(field.id)}
                                     disabled={savingField}
-                                    className="px-4 py-1.5 bg-charcoal-dark text-on-primary text-xs font-bold rounded-xl shadow-sm disabled:opacity-50"
+                                    className="px-4 py-1.5 bg-gradient-to-r from-[#DFB257] to-[#E2B858] hover:brightness-110 text-[#121316] text-xs font-bold rounded-xl shadow-sm disabled:opacity-50"
                                   >
                                     {savingField ? 'Saving...' : 'Save Changes'}
                                   </button>
@@ -1419,7 +1483,7 @@ const FormBuilderView = ({ id }) => {
                                     disabled
                                     readOnly
                                     placeholder={field.placeholder || 'Enter text response...'}
-                                    className="w-full h-10 px-3.5 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary transition-all"
+                                    className="w-full h-10 px-3.5 bg-[#16181D] border border-[#2A2D35] rounded-xl text-xs text-[#949089] transition-all"
                                   />
                                 )}
 
@@ -1429,7 +1493,7 @@ const FormBuilderView = ({ id }) => {
                                     disabled
                                     readOnly
                                     placeholder={field.placeholder || 'name@company.com'}
-                                    className="w-full h-10 px-3.5 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary transition-all"
+                                    className="w-full h-10 px-3.5 bg-[#16181D] border border-[#2A2D35] rounded-xl text-xs text-[#949089] transition-all"
                                   />
                                 )}
 
@@ -1439,7 +1503,7 @@ const FormBuilderView = ({ id }) => {
                                     disabled
                                     readOnly
                                     placeholder={field.placeholder || 'e.g. 10'}
-                                    className="w-full h-10 px-3.5 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary transition-all"
+                                    className="w-full h-10 px-3.5 bg-[#16181D] border border-[#2A2D35] rounded-xl text-xs text-[#949089] transition-all"
                                   />
                                 )}
 
@@ -1448,7 +1512,7 @@ const FormBuilderView = ({ id }) => {
                                     type="date"
                                     disabled
                                     readOnly
-                                    className="w-full h-10 px-3.5 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary transition-all"
+                                    className="w-full h-10 px-3.5 bg-[#16181D] border border-[#2A2D35] rounded-xl text-xs text-[#949089] transition-all"
                                   />
                                 )}
 
@@ -1456,7 +1520,7 @@ const FormBuilderView = ({ id }) => {
                                 {field.field_type === 'dropdown' && (
                                   <select
                                     disabled
-                                    className="w-full h-10 px-3.5 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary font-semibold transition-all"
+                                    className="w-full h-10 px-3.5 bg-[#16181D] border border-[#2A2D35] rounded-xl text-xs text-[#949089] font-semibold transition-all"
                                   >
                                     <option value="">Select option...</option>
                                     {field.options && field.options.map(opt => (
@@ -1473,9 +1537,9 @@ const FormBuilderView = ({ id }) => {
                                     {field.options && field.options.map(opt => (
                                       <label
                                         key={opt.id || opt.option_value}
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-silver-container/40 border border-ash-border rounded-xl text-xs font-semibold text-secondary transition-colors"
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-[#16181D] border border-[#2A2D35] rounded-xl text-xs font-semibold text-[#949089] transition-colors"
                                       >
-                                        <input type="checkbox" disabled className="w-3.5 h-3.5 text-secondary rounded border-ash-border" />
+                                        <input type="checkbox" disabled className="w-3.5 h-3.5 text-[#949089] rounded border-[#2A2D35] bg-[#20232B]" />
                                         <span>{opt.option_label}</span>
                                       </label>
                                     ))}
@@ -1489,7 +1553,7 @@ const FormBuilderView = ({ id }) => {
                                         key={s}
                                         type="button"
                                         disabled
-                                        className="px-3 py-1.5 bg-silver-container/40 border border-ash-border rounded-xl text-xs text-secondary font-bold transition-all"
+                                        className="px-3 py-1.5 bg-[#16181D] border border-[#2A2D35] rounded-xl text-xs text-[#949089] font-bold transition-all"
                                       >
                                         ★ {s}
                                       </button>
@@ -1498,7 +1562,7 @@ const FormBuilderView = ({ id }) => {
                                 )}
 
                                 {field.field_type === 'file' && (
-                                  <div className="p-4 bg-silver-container/20 border border-dashed border-ash-border rounded-xl text-xs text-secondary text-center">
+                                  <div className="p-4 bg-[#16181D] border border-dashed border-[#2A2D35] rounded-xl text-xs text-[#949089] text-center">
                                     📎 File attachment dropzone
                                   </div>
                                 )}
@@ -1507,6 +1571,16 @@ const FormBuilderView = ({ id }) => {
                           </div>
                         );
                       })}
+                      {!isArchived && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAddFieldModal(fieldTypesList[0])}
+                          className="w-full py-2.5 text-xs sm:text-sm rounded-xl border border-dashed border-[#E2B858]/50 text-[#E2B858] hover:bg-[#E2B858]/10 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer mt-3"
+                        >
+                          <span className="material-symbols-outlined text-sm">add</span>
+                          <span>Add Question</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </>
@@ -1517,16 +1591,16 @@ const FormBuilderView = ({ id }) => {
                 <div className="space-y-6">
                   {/* Create New Rule Form Card */}
                   {!isArchived && (
-                    <div className="p-5 bg-silver-container/20 border border-ash-border rounded-2xl space-y-4">
+                    <div className="p-5 bg-[#16181D] border border-[#2A2D35] rounded-2xl space-y-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-xs text-charcoal-dark uppercase tracking-wider flex items-center gap-1.5">
+                        <h4 className="font-bold text-xs text-[#F5F3EF] uppercase tracking-wider flex items-center gap-1.5">
                           <span>➕</span> Add New Conditional Rule
                         </h4>
-                        <span className="text-[10px] text-secondary">Dynamically branch your form flow</span>
+                        <span className="text-[10px] text-[#949089]">Dynamically branch your form flow</span>
                       </div>
 
                       {fields.length < 2 ? (
-                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-600 dark:text-amber-400">
+                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400">
                           ⚠️ You need at least 2 questions in your form to configure conditional rules (one trigger and one target question).
                         </div>
                       ) : (
@@ -1534,8 +1608,8 @@ const FormBuilderView = ({ id }) => {
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {/* Trigger Question */}
                             <div>
-                              <label className="block text-xs font-bold text-charcoal-dark mb-1">
-                                If this question... <span className="text-error">*</span>
+                              <label className="block text-xs font-bold text-[#F5F3EF] mb-1">
+                                If this question... <span className="text-rose-400">*</span>
                               </label>
                               <select
                                 value={newRuleData.trigger_field_id}
@@ -1544,7 +1618,7 @@ const FormBuilderView = ({ id }) => {
                                   trigger_field_id: e.target.value,
                                   comparison_value: ''
                                 })}
-                                className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark cursor-pointer"
+                                className="w-full h-9 px-3 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs text-[#F5F3EF] font-medium focus:outline-none focus:border-[#E2B858] cursor-pointer"
                               >
                                 <option value="">Select trigger question...</option>
                                 {fields.map((f, idx) => (
@@ -1557,13 +1631,13 @@ const FormBuilderView = ({ id }) => {
 
                             {/* Operator */}
                             <div>
-                              <label className="block text-xs font-bold text-charcoal-dark mb-1">
-                                Operator <span className="text-error">*</span>
+                              <label className="block text-xs font-bold text-[#F5F3EF] mb-1">
+                                Operator <span className="text-rose-400">*</span>
                               </label>
                               <select
                                 value={newRuleData.operator}
                                 onChange={(e) => setNewRuleData({ ...newRuleData, operator: e.target.value })}
-                                className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark cursor-pointer"
+                                className="w-full h-9 px-3 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs text-[#F5F3EF] font-medium focus:outline-none focus:border-[#E2B858] cursor-pointer"
                               >
                                 <option value="equals">Equals (==)</option>
                                 <option value="not_equals">Not Equals (!=)</option>
@@ -1575,11 +1649,11 @@ const FormBuilderView = ({ id }) => {
 
                             {/* Comparison Value */}
                             <div>
-                              <label className="block text-xs font-bold text-charcoal-dark mb-1">
-                                Comparison Value {newRuleData.operator !== 'is_empty' && <span className="text-error">*</span>}
+                              <label className="block text-xs font-bold text-[#F5F3EF] mb-1">
+                                Comparison Value {newRuleData.operator !== 'is_empty' && <span className="text-rose-400">*</span>}
                               </label>
                               {newRuleData.operator === 'is_empty' ? (
-                                <div className="h-9 px-3 bg-silver-container/30 border border-ash-border rounded-xl text-xs text-secondary flex items-center italic">
+                                <div className="h-9 px-3 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs text-[#949089] flex items-center italic">
                                   Not needed for "Is Empty"
                                 </div>
                               ) : (() => {
@@ -1589,7 +1663,7 @@ const FormBuilderView = ({ id }) => {
                                     <select
                                       value={newRuleData.comparison_value}
                                       onChange={(e) => setNewRuleData({ ...newRuleData, comparison_value: e.target.value })}
-                                      className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark cursor-pointer"
+                                      className="w-full h-9 px-3 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs text-[#F5F3EF] font-medium focus:outline-none focus:border-[#E2B858] cursor-pointer"
                                     >
                                       <option value="">Select option value...</option>
                                       {trigField.options.map(opt => (
@@ -1606,7 +1680,7 @@ const FormBuilderView = ({ id }) => {
                                     value={newRuleData.comparison_value}
                                     onChange={(e) => setNewRuleData({ ...newRuleData, comparison_value: e.target.value })}
                                     placeholder="Enter expected value..."
-                                    className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark"
+                                    className="w-full h-9 px-3 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs text-[#F5F3EF] font-medium focus:outline-none focus:border-[#E2B858]"
                                   />
                                 );
                               })()}
@@ -1616,13 +1690,13 @@ const FormBuilderView = ({ id }) => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                             {/* Action */}
                             <div>
-                              <label className="block text-xs font-bold text-charcoal-dark mb-1">
-                                Then Action <span className="text-error">*</span>
+                              <label className="block text-xs font-bold text-[#F5F3EF] mb-1">
+                                Then Action <span className="text-rose-400">*</span>
                               </label>
                               <select
                                 value={newRuleData.action}
                                 onChange={(e) => setNewRuleData({ ...newRuleData, action: e.target.value })}
-                                className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark cursor-pointer"
+                                className="w-full h-9 px-3 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs text-[#F5F3EF] font-medium focus:outline-none focus:border-[#E2B858] cursor-pointer"
                               >
                                 <option value="show">Show question</option>
                                 <option value="hide">Hide question</option>
@@ -1633,13 +1707,13 @@ const FormBuilderView = ({ id }) => {
 
                             {/* Target Question */}
                             <div>
-                              <label className="block text-xs font-bold text-charcoal-dark mb-1">
-                                Target Question <span className="text-error">*</span>
+                              <label className="block text-xs font-bold text-[#F5F3EF] mb-1">
+                                Target Question <span className="text-rose-400">*</span>
                               </label>
                               <select
                                 value={newRuleData.target_field_id}
                                 onChange={(e) => setNewRuleData({ ...newRuleData, target_field_id: e.target.value })}
-                                className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark font-medium focus:outline-none focus:border-charcoal-dark cursor-pointer"
+                                className="w-full h-9 px-3 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs text-[#F5F3EF] font-medium focus:outline-none focus:border-[#E2B858] cursor-pointer"
                               >
                                 <option value="">Select target question...</option>
                                 {fields
@@ -1655,13 +1729,13 @@ const FormBuilderView = ({ id }) => {
 
                           {/* Rule error/success inline alerts */}
                           {rulesError && (
-                            <div className="p-3 bg-error-container/40 border border-error/20 rounded-xl text-xs text-error font-medium">
+                            <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-400 font-medium">
                               {rulesError}
                             </div>
                           )}
 
                           {ruleSuccessMsg && (
-                            <div className="p-3 bg-mint-emerald/10 border border-mint-emerald/30 rounded-xl text-xs text-mint-emerald font-semibold">
+                            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-400 font-semibold">
                               {ruleSuccessMsg}
                             </div>
                           )}
@@ -1670,7 +1744,7 @@ const FormBuilderView = ({ id }) => {
                             <button
                               type="submit"
                               disabled={savingRule || !newRuleData.trigger_field_id || !newRuleData.target_field_id}
-                              className="px-4 py-2 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl shadow-sm disabled:opacity-40 transition-all flex items-center gap-1.5"
+                              className="px-4 py-2 bg-gradient-to-r from-[#DFB257] to-[#E2B858] hover:brightness-110 text-[#121316] font-bold text-xs rounded-xl shadow-sm disabled:opacity-40 transition-all flex items-center gap-1.5"
                             >
                               <span>➕</span> {savingRule ? 'Saving Rule...' : 'Save Conditional Rule'}
                             </button>
@@ -1683,28 +1757,28 @@ const FormBuilderView = ({ id }) => {
                   {/* Configured Rules List */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-xs text-charcoal-dark uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="font-bold text-xs text-[#F5F3EF] uppercase tracking-wider flex items-center gap-2">
                         <span>📜</span> Configured Conditional Rules ({rules.length})
                       </h4>
                       <button
                         type="button"
                         onClick={loadRules}
                         disabled={loadingRules}
-                        className="text-[11px] font-semibold text-secondary hover:text-charcoal-dark transition-colors"
+                        className="text-[11px] font-semibold text-[#949089] hover:text-[#E2B858] transition-colors"
                       >
                         {loadingRules ? 'Refreshing...' : '↻ Refresh Rules'}
                       </button>
                     </div>
 
                     {loadingRules ? (
-                      <div className="p-8 text-center bg-silver-container/20 border border-ash-border rounded-xl text-xs text-secondary">
+                      <div className="p-8 text-center bg-[#16181D] border border-[#2A2D35] rounded-xl text-xs text-[#949089]">
                         Loading conditional rules...
                       </div>
                     ) : rules.length === 0 ? (
-                      <div className="p-8 text-center bg-silver-container/20 border border-dashed border-ash-border rounded-2xl space-y-2">
+                      <div className="p-8 text-center bg-[#16181D] border border-dashed border-[#2A2D35] rounded-2xl space-y-2">
                         <div className="text-2xl">🔀</div>
-                        <p className="text-xs font-bold text-charcoal-dark">No Conditional Rules Configured</p>
-                        <p className="text-[11px] text-secondary max-w-sm mx-auto">
+                        <p className="text-xs font-bold text-[#F5F3EF]">No Conditional Rules Configured</p>
+                        <p className="text-[11px] text-[#949089] max-w-sm mx-auto">
                           Create dynamic branching logic to show, hide, or require questions based on what respondents select.
                         </p>
                       </div>
@@ -1717,25 +1791,25 @@ const FormBuilderView = ({ id }) => {
                           const targName = targ ? targ.label : (rule.target_field_id ? `Field (${String(rule.target_field_id).slice(0, 8)}...)` : 'Unknown Field');
 
                           let actionBadge = (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-mint-emerald/20 text-mint-emerald border border-mint-emerald/30">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                               SHOW
                             </span>
                           );
                           if (rule.action === 'hide') {
                             actionBadge = (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-error-container/60 text-error border border-error/30">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">
                                 HIDE
                               </span>
                             );
                           } else if (rule.action === 'require') {
                             actionBadge = (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-warm-amber/20 text-warm-amber border border-warm-amber/30">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">
                                 REQUIRE
                               </span>
                             );
                           } else if (rule.action === 'show_and_require') {
                             actionBadge = (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-cyan-accent/20 text-cyan-accent border border-cyan-accent/30">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
                                 SHOW & REQUIRE
                               </span>
                             );
@@ -1744,25 +1818,25 @@ const FormBuilderView = ({ id }) => {
                           return (
                             <div
                               key={rule.id}
-                              className="p-4 bg-surface border border-ash-border rounded-xl shadow-sm flex items-center justify-between gap-4 hover:border-charcoal-dark/40 transition-all"
+                              className="p-4 bg-[#16181D] border border-[#2A2D35] rounded-xl shadow-sm flex items-center justify-between gap-4 hover:border-[#E2B858]/40 transition-all"
                             >
                               <div className="flex-1 text-xs space-y-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-bold text-secondary text-[11px] uppercase tracking-wider">IF</span>
-                                  <span className="font-bold text-charcoal-dark bg-silver-container/60 px-2 py-0.5 rounded-lg border border-ash-border">
+                                  <span className="font-bold text-[#949089] text-[11px] uppercase tracking-wider">IF</span>
+                                  <span className="font-bold text-[#F5F3EF] bg-[#20232B] px-2 py-0.5 rounded-lg border border-[#2A2D35]">
                                     {trigName}
                                   </span>
-                                  <span className="text-secondary font-mono text-[11px]">{rule.operator}</span>
+                                  <span className="text-[#949089] font-mono text-[11px]">{rule.operator}</span>
                                   {rule.operator !== 'is_empty' && (
-                                    <span className="font-bold text-primary bg-silver-container px-2 py-0.5 rounded-lg border border-ash-border">
+                                    <span className="font-bold text-[#E2B858] bg-[#20232B] px-2 py-0.5 rounded-lg border border-[#2A2D35]">
                                       "{rule.comparison_value}"
                                     </span>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 pt-1 flex-wrap">
-                                  <span className="font-bold text-secondary text-[11px] uppercase tracking-wider">THEN</span>
+                                  <span className="font-bold text-[#949089] text-[11px] uppercase tracking-wider">THEN</span>
                                   {actionBadge}
-                                  <span className="font-bold text-charcoal-dark bg-silver-container/60 px-2 py-0.5 rounded-lg border border-ash-border">
+                                  <span className="font-bold text-[#F5F3EF] bg-[#20232B] px-2 py-0.5 rounded-lg border border-[#2A2D35]">
                                     {targName}
                                   </span>
                                 </div>
@@ -1774,7 +1848,7 @@ const FormBuilderView = ({ id }) => {
                                   onClick={() => handleDeleteRule(rule.id)}
                                   disabled={deletingRuleId === rule.id}
                                   title="Delete Rule"
-                                  className="w-8 h-8 rounded-lg bg-silver-container/60 hover:bg-error-container/60 text-secondary hover:text-error border border-ash-border flex items-center justify-center text-xs transition-colors shrink-0 disabled:opacity-40"
+                                  className="w-8 h-8 rounded-lg bg-[#20232B] hover:bg-rose-500/20 text-[#949089] hover:text-rose-400 border border-[#2A2D35] flex items-center justify-center text-xs transition-colors shrink-0 disabled:opacity-40"
                                 >
                                   {deletingRuleId === rule.id ? '...' : '🗑️'}
                                 </button>
@@ -1794,10 +1868,10 @@ const FormBuilderView = ({ id }) => {
 
       {/* Template Clean Replace Confirmation Modal */}
       {showTemplateConfirmModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-sm w-full p-6 text-left space-y-4">
-            <h3 className="font-bold text-charcoal-dark text-base">Replace existing questions?</h3>
-            <p className="text-xs text-secondary leading-relaxed">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-sm w-full p-6 text-left space-y-4">
+            <h3 className="font-bold text-[#F5F3EF] text-base">Replace existing questions?</h3>
+            <p className="text-xs text-[#949089] leading-relaxed">
               Applying this template will clean replace the {fields.length} existing question{fields.length === 1 ? '' : 's'} on this draft canvas. Continue?
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -1806,14 +1880,14 @@ const FormBuilderView = ({ id }) => {
                   setShowTemplateConfirmModal(false);
                   setPendingTemplateKey(null);
                 }}
-                className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl"
+                className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] font-semibold text-xs rounded-xl"
               >
                 Cancel
               </button>
               <button
                 onClick={() => executeApplyTemplate(pendingTemplateKey)}
                 disabled={applyingTemplate}
-                className="px-4 py-2 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
+                className="px-4 py-2 bg-gradient-to-r from-[#DFB257] to-[#E2B858] hover:brightness-110 text-[#121316] font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
               >
                 {applyingTemplate ? 'Applying Template...' : 'Replace & Apply Template'}
               </button>
@@ -1824,22 +1898,22 @@ const FormBuilderView = ({ id }) => {
 
       {/* Add New Question Configuration Modal */}
       {showAddFieldModal && selectedFieldType && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-md w-full p-6 text-left space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-ash-border pb-3">
-              <h3 className="font-bold text-charcoal-dark text-base flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-md w-full p-6 text-left space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#2A2D35] pb-3">
+              <h3 className="font-bold text-[#F5F3EF] text-base flex items-center gap-2">
                 <span>{selectedFieldType.icon}</span> Add New {selectedFieldType.label} Question
               </h3>
               <button
                 onClick={() => setShowAddFieldModal(false)}
-                className="text-secondary hover:text-primary font-bold text-sm"
+                className="text-[#949089] hover:text-[#F5F3EF] font-bold text-sm"
               >
                 ✕
               </button>
             </div>
 
             {fieldModalError && (
-              <div className="p-3 bg-error-container/40 border border-error/20 rounded-xl text-xs text-error font-medium">
+              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-400 font-medium">
                 {fieldModalError}
               </div>
             )}
@@ -1847,8 +1921,8 @@ const FormBuilderView = ({ id }) => {
             <div className="space-y-4">
               {/* Question Title / Label (Required, Auto-focused) */}
               <div>
-                <label className="block text-xs font-bold text-charcoal-dark mb-1">
-                  Question Title / Label <span className="text-error">*</span>
+                <label className="block text-xs font-bold text-[#F5F3EF] mb-1">
+                  Question Title / Label <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -1856,15 +1930,15 @@ const FormBuilderView = ({ id }) => {
                   placeholder="e.g. What is your full name?"
                   value={newFieldData.label}
                   onChange={(e) => setNewFieldData({ ...newFieldData, label: e.target.value })}
-                  className="w-full h-10 px-3.5 bg-surface border border-ash-border rounded-xl text-xs font-bold text-charcoal-dark focus:outline-none focus:border-charcoal-dark"
+                  className="w-full h-10 px-3.5 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs font-bold text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                 />
               </div>
 
               {/* Placeholder / Help Text (Optional) */}
               {(selectedFieldType.type === 'text' || selectedFieldType.type === 'email' || selectedFieldType.type === 'number' || selectedFieldType.type === 'date' || selectedFieldType.type === 'file') && (
                 <div>
-                  <label className="block text-xs font-bold text-charcoal-dark mb-1">
-                    Placeholder / Help Text <span className="text-secondary font-normal">(Optional)</span>
+                  <label className="block text-xs font-bold text-[#F5F3EF] mb-1">
+                    Placeholder / Help Text <span className="text-[#949089] font-normal">(Optional)</span>
                   </label>
                   <input
                     type="text"
@@ -1872,7 +1946,7 @@ const FormBuilderView = ({ id }) => {
                     value={newFieldData.placeholder}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => setNewFieldData({ ...newFieldData, placeholder: e.target.value })}
-                    className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark focus:outline-none focus:border-charcoal-dark"
+                    className="w-full h-9 px-3 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                   />
                 </div>
               )}
@@ -1884,18 +1958,18 @@ const FormBuilderView = ({ id }) => {
                   id="modal_field_required"
                   checked={newFieldData.is_required}
                   onChange={(e) => setNewFieldData({ ...newFieldData, is_required: e.target.checked })}
-                  className="w-4 h-4 text-charcoal-dark border-ash-border rounded cursor-pointer"
+                  className="w-4 h-4 text-[#E2B858] bg-[#20232B] border-[#2A2D35] rounded cursor-pointer"
                 />
-                <label htmlFor="modal_field_required" className="text-xs font-bold text-charcoal-dark cursor-pointer">
+                <label htmlFor="modal_field_required" className="text-xs font-bold text-[#F5F3EF] cursor-pointer">
                   Required Question
                 </label>
               </div>
 
               {/* Choice Options Manager (Dropdown, Radio, Checkbox) */}
               {(selectedFieldType.type === 'dropdown' || selectedFieldType.type === 'checkbox' || selectedFieldType.type === 'radio') && (
-                <div className="pt-3 border-t border-ash-border space-y-3">
+                <div className="pt-3 border-t border-[#2A2D35] space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-charcoal-dark">
+                    <label className="block text-xs font-bold text-[#F5F3EF]">
                       Choice Options Manager
                     </label>
                     <button
@@ -1904,7 +1978,7 @@ const FormBuilderView = ({ id }) => {
                         ...newFieldData,
                         options: [...newFieldData.options, { option_label: '', option_value: '' }]
                       })}
-                      className="text-xs font-bold text-electric-indigo hover:underline"
+                      className="text-xs font-bold text-[#E2B858] hover:underline"
                     >
                       + Add Option
                     </button>
@@ -1923,7 +1997,7 @@ const FormBuilderView = ({ id }) => {
                           updatedOpts[oIdx].option_value = e.target.value.toLowerCase().replace(/\s+/g, '_');
                           setNewFieldData({ ...newFieldData, options: updatedOpts });
                         }}
-                        className="flex-1 h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs text-charcoal-dark"
+                        className="flex-1 h-9 px-3 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                       />
                       {newFieldData.options.length > 1 && (
                         <button
@@ -1932,7 +2006,7 @@ const FormBuilderView = ({ id }) => {
                             const updatedOpts = newFieldData.options.filter((_, i) => i !== oIdx);
                             setNewFieldData({ ...newFieldData, options: updatedOpts });
                           }}
-                          className="w-7 h-7 text-error hover:bg-error-container/40 rounded flex items-center justify-center font-bold text-xs"
+                          className="w-7 h-7 text-rose-400 hover:bg-rose-500/20 rounded flex items-center justify-center font-bold text-xs"
                           title="Remove option"
                         >
                           ✕
@@ -1945,14 +2019,14 @@ const FormBuilderView = ({ id }) => {
 
               {/* Rating Limits (Rating Scale) */}
               {selectedFieldType.type === 'rating' && (
-                <div className="pt-3 border-t border-ash-border space-y-2">
-                  <label className="block text-xs font-bold text-charcoal-dark mb-1">
+                <div className="pt-3 border-t border-[#2A2D35] space-y-2">
+                  <label className="block text-xs font-bold text-[#F5F3EF] mb-1">
                     Max Rating Limit
                   </label>
                   <select
                     value={newFieldData.max_rating}
                     onChange={(e) => setNewFieldData({ ...newFieldData, max_rating: Number(e.target.value) })}
-                    className="w-full h-9 px-3 bg-surface border border-ash-border rounded-xl text-xs font-bold text-charcoal-dark focus:outline-none focus:border-charcoal-dark cursor-pointer"
+                    className="w-full h-9 px-3 bg-[#20232B] border border-[#2A2D35] rounded-xl text-xs font-bold text-[#F5F3EF] focus:outline-none focus:border-[#E2B858] cursor-pointer"
                   >
                     <option value={5}>5 Stars (1 to 5 scale)</option>
                     <option value={10}>10 Stars (1 to 10 scale)</option>
@@ -1962,13 +2036,13 @@ const FormBuilderView = ({ id }) => {
 
               {/* Validation Constraints for Text */}
               {selectedFieldType.type === 'text' && (
-                <div className="pt-3 border-t border-ash-border space-y-2">
-                  <label className="block text-xs font-bold text-charcoal-dark">
+                <div className="pt-3 border-t border-[#2A2D35] space-y-2">
+                  <label className="block text-xs font-bold text-[#F5F3EF]">
                     Validation Constraints (Length)
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] text-secondary font-semibold mb-1">Min Length</label>
+                      <label className="block text-[10px] text-[#949089] font-semibold mb-1">Min Length</label>
                       <input
                         type="number"
                         min="0"
@@ -1978,11 +2052,11 @@ const FormBuilderView = ({ id }) => {
                           ...newFieldData,
                           validation_config: { ...newFieldData.validation_config, min_length: e.target.value }
                         })}
-                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                        className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-secondary font-semibold mb-1">Max Length</label>
+                      <label className="block text-[10px] text-[#949089] font-semibold mb-1">Max Length</label>
                       <input
                         type="number"
                         min="1"
@@ -1992,7 +2066,7 @@ const FormBuilderView = ({ id }) => {
                           ...newFieldData,
                           validation_config: { ...newFieldData.validation_config, max_length: e.target.value }
                         })}
-                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                        className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                       />
                     </div>
                   </div>
@@ -2001,13 +2075,13 @@ const FormBuilderView = ({ id }) => {
 
               {/* Validation Constraints for Number */}
               {selectedFieldType.type === 'number' && (
-                <div className="pt-3 border-t border-ash-border space-y-2">
-                  <label className="block text-xs font-bold text-charcoal-dark">
+                <div className="pt-3 border-t border-[#2A2D35] space-y-2">
+                  <label className="block text-xs font-bold text-[#F5F3EF]">
                     Validation Constraints (Range)
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] text-secondary font-semibold mb-1">Min Value</label>
+                      <label className="block text-[10px] text-[#949089] font-semibold mb-1">Min Value</label>
                       <input
                         type="number"
                         placeholder="e.g. 0"
@@ -2016,11 +2090,11 @@ const FormBuilderView = ({ id }) => {
                           ...newFieldData,
                           validation_config: { ...newFieldData.validation_config, min_value: e.target.value }
                         })}
-                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                        className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-secondary font-semibold mb-1">Max Value</label>
+                      <label className="block text-[10px] text-[#949089] font-semibold mb-1">Max Value</label>
                       <input
                         type="number"
                         placeholder="e.g. 100"
@@ -2029,7 +2103,7 @@ const FormBuilderView = ({ id }) => {
                           ...newFieldData,
                           validation_config: { ...newFieldData.validation_config, max_value: e.target.value }
                         })}
-                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                        className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                       />
                     </div>
                   </div>
@@ -2038,13 +2112,13 @@ const FormBuilderView = ({ id }) => {
 
               {/* Validation Constraints for File */}
               {selectedFieldType.type === 'file' && (
-                <div className="pt-3 border-t border-ash-border space-y-2">
-                  <label className="block text-xs font-bold text-charcoal-dark">
+                <div className="pt-3 border-t border-[#2A2D35] space-y-2">
+                  <label className="block text-xs font-bold text-[#F5F3EF]">
                     Validation Constraints (File Upload)
                   </label>
                   <div className="space-y-2">
                     <div>
-                      <label className="block text-[10px] text-secondary font-semibold mb-1">Allowed Extensions (comma-separated)</label>
+                      <label className="block text-[10px] text-[#949089] font-semibold mb-1">Allowed Extensions (comma-separated)</label>
                       <input
                         type="text"
                         placeholder=".pdf, .png, .jpg"
@@ -2053,11 +2127,11 @@ const FormBuilderView = ({ id }) => {
                           ...newFieldData,
                           validation_config: { ...newFieldData.validation_config, allowed_extensions: e.target.value }
                         })}
-                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark font-mono"
+                        className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] font-mono focus:outline-none focus:border-[#E2B858]"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-secondary font-semibold mb-1">Max Size (MB)</label>
+                      <label className="block text-[10px] text-[#949089] font-semibold mb-1">Max Size (MB)</label>
                       <input
                         type="number"
                         min="1"
@@ -2068,7 +2142,7 @@ const FormBuilderView = ({ id }) => {
                           ...newFieldData,
                           validation_config: { ...newFieldData.validation_config, max_size_mb: e.target.value }
                         })}
-                        className="w-full h-8 px-2.5 bg-surface border border-ash-border rounded-lg text-xs text-charcoal-dark"
+                        className="w-full h-8 px-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
                       />
                     </div>
                   </div>
@@ -2077,11 +2151,11 @@ const FormBuilderView = ({ id }) => {
             </div>
 
             {/* Dialog Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-ash-border">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#2A2D35]">
               <button
                 type="button"
                 onClick={() => setShowAddFieldModal(false)}
-                className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl"
+                className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] font-semibold text-xs rounded-xl"
               >
                 Cancel
               </button>
@@ -2089,7 +2163,7 @@ const FormBuilderView = ({ id }) => {
                 type="button"
                 onClick={handleConfirmAddField}
                 disabled={addingField}
-                className="px-4 py-2 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
+                className="px-4 py-2 bg-gradient-to-r from-[#DFB257] to-[#E2B858] hover:brightness-110 text-[#121316] font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
               >
                 {addingField ? 'Adding Question...' : 'Add Question'}
               </button>
@@ -2100,25 +2174,25 @@ const FormBuilderView = ({ id }) => {
 
       {/* Clear All Fields / Reset Canvas Confirmation Modal */}
       {showClearCanvasModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-sm w-full p-6 text-left space-y-4">
-            <h3 className="font-bold text-charcoal-dark text-base flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-sm w-full p-6 text-left space-y-4">
+            <h3 className="font-bold text-[#F5F3EF] text-base flex items-center gap-2">
               <span>🗑️</span> Clear All Fields?
             </h3>
-            <p className="text-xs text-secondary leading-relaxed">
+            <p className="text-xs text-[#949089] leading-relaxed">
               Are you sure you want to remove all questions and start from scratch?
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowClearCanvasModal(false)}
-                className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl"
+                className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] font-semibold text-xs rounded-xl"
               >
                 Cancel
               </button>
               <button
                 onClick={executeClearCanvas}
                 disabled={clearingCanvas}
-                className="px-4 py-2 bg-error hover:opacity-90 text-white font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
               >
                 {clearingCanvas ? 'Clearing...' : 'Clear All Fields'}
               </button>
@@ -2129,46 +2203,108 @@ const FormBuilderView = ({ id }) => {
 
       {/* Form Settings Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-md w-full p-6 text-left space-y-4">
-            <div className="flex items-center justify-between border-b border-ash-border pb-3">
-              <h3 className="font-bold text-charcoal-dark text-base flex items-center gap-2">
-                <span>⚙️</span> Form Settings & Configurations
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-md w-full p-6 text-left space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#2A2D35] pb-3">
+              <h3 className="font-bold text-[#F5F3EF] text-base flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#E2B858] text-[20px]">tune</span>
+                <span>Form Settings & Auto-Close</span>
               </h3>
-              <button onClick={() => setShowSettingsModal(false)} className="text-secondary hover:text-primary font-bold">✕</button>
+              <button onClick={() => setShowSettingsModal(false)} className="text-[#949089] hover:text-[#F5F3EF] font-bold">✕</button>
             </div>
+
+            {settingsError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl">
+                {settingsError}
+              </div>
+            )}
+            {settingsSuccess && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-xl flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                <span>{settingsSuccess}</span>
+              </div>
+            )}
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-secondary mb-1">Form ID</label>
-                <input type="text" readOnly value={form.id} className="w-full h-8 px-3 bg-silver-container border border-ash-border rounded-lg text-xs font-mono text-primary" />
+                <label className="block text-xs font-bold text-[#949089] mb-1">Form ID</label>
+                <input type="text" readOnly value={form.id} className="w-full h-8 px-3 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs font-mono text-[#F5F3EF]" />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-secondary mb-1">Form Status</label>
-                <div className="flex items-center justify-between p-2.5 bg-silver-container/50 border border-ash-border rounded-lg">
-                  <span className="text-xs font-bold text-charcoal-dark">Current State:</span>
+                <label className="block text-xs font-bold text-[#949089] mb-1">Form Status</label>
+                <div className="flex items-center justify-between p-2.5 bg-[#20232B] border border-[#2A2D35] rounded-lg">
+                  <span className="text-xs font-bold text-[#F5F3EF]">Current State:</span>
                   {getStatusBadge(form.status)}
                 </div>
               </div>
 
+              <div className="pt-2 border-t border-[#2A2D35] space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-[#949089] mb-1">Max Submissions</label>
+                  <input
+                    type="number"
+                    name="max_submissions"
+                    min="1"
+                    placeholder="Max Submissions"
+                    value={settingsMaxSubmissions}
+                    onChange={(e) => setSettingsMaxSubmissions(e.target.value)}
+                    className="w-full h-8 px-3 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#949089] mb-1">Close Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    name="closes_at"
+                    value={settingsClosesAt}
+                    onChange={(e) => setSettingsClosesAt(e.target.value)}
+                    className="w-full h-8 px-3 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#949089] mb-1">Custom Closed Message</label>
+                  <textarea
+                    name="closed_message"
+                    rows={2}
+                    placeholder="Custom closed message..."
+                    value={settingsClosedMessage}
+                    onChange={(e) => setSettingsClosedMessage(e.target.value)}
+                    className="w-full p-2 bg-[#20232B] border border-[#2A2D35] rounded-lg text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E2B858] resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={handleSaveSettings}
+                    disabled={savingSettings}
+                    className="px-4 py-2 bg-gradient-to-r from-[#DFB257] to-[#E2B858] hover:brightness-110 text-[#121316] font-bold text-xs rounded-xl shadow-sm disabled:opacity-50 cursor-pointer"
+                  >
+                    {savingSettings ? 'Saving...' : 'Save Settings'}
+                  </button>
+                </div>
+              </div>
+
               {isArchived ? (
-                <div className="pt-3 border-t border-ash-border">
-                  <label className="block text-xs font-bold text-mint-emerald mb-1">Restore Form</label>
+                <div className="pt-3 border-t border-[#2A2D35]">
+                  <label className="block text-xs font-bold text-emerald-400 mb-1">Restore Form</label>
                   <button
                     onClick={handleUnarchiveForm}
                     disabled={unarchiving}
-                    className="w-full py-2 bg-mint-emerald/10 hover:bg-mint-emerald/20 text-mint-emerald border border-mint-emerald/20 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    className="w-full py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     <span>🔄</span> {unarchiving ? 'Restoring...' : 'Unarchive Form'}
                   </button>
                 </div>
               ) : (
-                <div className="pt-3 border-t border-ash-border">
-                  <label className="block text-xs font-bold text-error mb-1">Danger Zone</label>
+                <div className="pt-3 border-t border-[#2A2D35]">
+                  <label className="block text-xs font-bold text-rose-400 mb-1">Danger Zone</label>
                   <button
                     onClick={() => setShowArchiveModal(true)}
-                    className="w-full py-2 bg-error/10 hover:bg-error/20 text-error border border-error/20 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                    className="w-full py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5"
                   >
                     <span>📦</span> Archive Form
                   </button>
@@ -2176,8 +2312,8 @@ const FormBuilderView = ({ id }) => {
               )}
             </div>
 
-            <div className="pt-2 border-t border-ash-border flex justify-end">
-              <button onClick={() => setShowSettingsModal(false)} className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl">
+            <div className="pt-2 border-t border-[#2A2D35] flex justify-end">
+              <button onClick={() => setShowSettingsModal(false)} className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] font-semibold text-xs rounded-xl">
                 Done
               </button>
             </div>
@@ -2187,23 +2323,23 @@ const FormBuilderView = ({ id }) => {
 
       {/* Archive Modal Confirmation */}
       {showArchiveModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-sm w-full p-6 text-left space-y-4">
-            <h3 className="font-bold text-charcoal-dark text-base">Archive this form?</h3>
-            <p className="text-xs text-secondary leading-relaxed">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-sm w-full p-6 text-left space-y-4">
+            <h3 className="font-bold text-[#F5F3EF] text-base">Archive this form?</h3>
+            <p className="text-xs text-[#949089] leading-relaxed">
               Archiving will freeze this form permanently and reject any future public response submissions (returns HTTP 410 Gone). You can unarchive it anytime.
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowArchiveModal(false)}
-                className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl"
+                className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] font-semibold text-xs rounded-xl"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmArchiveForm}
                 disabled={archiving}
-                className="px-4 py-2 bg-error hover:opacity-90 text-white font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
               >
                 {archiving ? 'Archiving...' : 'Archive Form'}
               </button>
@@ -2214,23 +2350,30 @@ const FormBuilderView = ({ id }) => {
 
       {/* Publish Modal Confirmation */}
       {showPublishModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-sm w-full p-6 text-left space-y-4">
-            <h3 className="font-bold text-charcoal-dark text-base">Publish this form?</h3>
-            <p className="text-xs text-secondary leading-relaxed">
-              Publishing will freeze the active version and make it available for public responses. Subsequent edits will branch into a new draft version.
-            </p>
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-sm w-full p-6 text-left space-y-4">
+            <h3 className="font-bold text-[#F5F3EF] text-base">Publish this form?</h3>
+            {fields.length === 0 ? (
+              <div className="bg-amber-500/10 border border-amber-500/40 text-amber-300 p-3.5 rounded-xl flex items-center gap-2.5 text-xs font-medium">
+                <span className="material-symbols-outlined text-amber-400 text-sm">warning</span>
+                <span>Cannot publish an empty form. Please add at least one question.</span>
+              </div>
+            ) : (
+              <p className="text-xs text-[#949089] leading-relaxed">
+                Publishing will freeze the active version and make it available for public responses. Subsequent edits will branch into a new draft version.
+              </p>
+            )}
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowPublishModal(false)}
-                className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl"
+                className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] font-semibold text-xs rounded-xl"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmPublishForm}
-                disabled={publishing}
-                className="px-4 py-2 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
+                disabled={publishing || fields.length === 0}
+                className="px-4 py-2 bg-gradient-to-r from-[#DFB257] to-[#E2B858] hover:brightness-110 text-[#121316] font-bold text-xs rounded-xl shadow-sm disabled:opacity-50 cursor-pointer"
               >
                 {publishing ? 'Publishing...' : 'Publish Form'}
               </button>
@@ -2241,24 +2384,24 @@ const FormBuilderView = ({ id }) => {
 
       {/* Form Published Successfully Modal */}
       {showPublishSuccessModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-md w-full p-6 text-left space-y-5">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-md w-full p-6 text-left space-y-5">
             {/* Header & Green Checkmark Icon */}
             <div className="text-center space-y-2">
-              <div className="w-14 h-14 rounded-full bg-mint-emerald/10 border border-mint-emerald/20 text-mint-emerald flex items-center justify-center text-2xl mx-auto shadow-sm">
+              <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl mx-auto shadow-sm">
                 ✓
               </div>
-              <h3 className="font-bold text-charcoal-dark text-lg flex items-center justify-center gap-2">
+              <h3 className="font-bold text-[#F5F3EF] text-lg flex items-center justify-center gap-2">
                 <span>🚀</span> Form Published Successfully!
               </h3>
-              <p className="text-xs text-secondary leading-relaxed max-w-xs mx-auto">
+              <p className="text-xs text-[#949089] leading-relaxed max-w-xs mx-auto">
                 Your form is now live and ready to accept responses.
               </p>
             </div>
 
             {/* Shareable Link Box */}
             <div className="space-y-2 pt-1">
-              <label className="block text-[11px] font-bold text-secondary uppercase tracking-wider">
+              <label className="block text-[11px] font-bold text-[#949089] uppercase tracking-wider">
                 Public Shareable Link
               </label>
               <div className="flex items-center gap-2">
@@ -2266,14 +2409,14 @@ const FormBuilderView = ({ id }) => {
                   type="text"
                   readOnly
                   value={publishedShareUrl}
-                  className="flex-1 h-10 px-3.5 border border-ash-border rounded-xl text-xs font-mono bg-silver-container text-primary focus:outline-none"
+                  className="flex-1 h-10 px-3.5 border border-[#2A2D35] rounded-xl text-xs font-mono bg-[#20232B] text-[#F5F3EF] focus:outline-none"
                 />
                 <button
                   onClick={handleCopyPublishLink}
-                  className="px-4 py-2.5 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl transition-all shrink-0 shadow-sm flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-gradient-to-r from-[#DFB257] to-[#E2B858] hover:brightness-110 text-[#121316] font-bold text-xs rounded-xl transition-all shrink-0 shadow-sm flex items-center gap-1.5"
                 >
                   {copiedPublishLink ? (
-                    <span className="text-mint-emerald font-bold">✓ Copied!</span>
+                    <span className="text-emerald-900 font-bold">✓ Copied!</span>
                   ) : (
                     <span>📋 Copy Link</span>
                   )}
@@ -2282,12 +2425,12 @@ const FormBuilderView = ({ id }) => {
             </div>
 
             {/* Action Buttons */}
-            <div className="pt-3 border-t border-ash-border flex items-center justify-between gap-3">
+            <div className="pt-3 border-t border-[#2A2D35] flex items-center justify-between gap-3">
               <a
                 href={publishedShareUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="px-4 py-2.5 bg-electric-indigo/10 hover:bg-electric-indigo/20 text-electric-indigo border border-electric-indigo/20 font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-1.5"
+                className="px-4 py-2.5 bg-[#E2B858]/10 hover:bg-[#E2B858]/20 text-[#E2B858] border border-[#E2B858]/20 font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-1.5"
               >
                 <span>🔗</span> Open Public Form
               </a>
@@ -2297,7 +2440,7 @@ const FormBuilderView = ({ id }) => {
                   setShowPublishSuccessModal(false);
                   navigate('/forms');
                 }}
-                className="px-5 py-2.5 bg-silver-container hover:bg-ash-border text-primary font-bold text-xs rounded-xl transition-all"
+                className="px-5 py-2.5 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] font-bold text-xs rounded-xl transition-all"
               >
                 Done
               </button>
@@ -2308,22 +2451,22 @@ const FormBuilderView = ({ id }) => {
 
       {/* Delete Field Modal */}
       {deleteFieldId && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-sm w-full p-6 text-left space-y-4">
-            <h3 className="font-bold text-charcoal-dark text-base">Delete this question?</h3>
-            <p className="text-xs text-secondary leading-relaxed">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-sm w-full p-6 text-left space-y-4">
+            <h3 className="font-bold text-[#F5F3EF] text-base">Delete this question?</h3>
+            <p className="text-xs text-[#949089] leading-relaxed">
               Are you sure you want to delete this question from the draft form?
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 onClick={() => setDeleteFieldId(null)}
-                className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl"
+                className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] font-semibold text-xs rounded-xl"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDeleteField}
-                className="px-4 py-2 bg-error hover:opacity-90 text-white font-bold text-xs rounded-xl shadow-sm"
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-sm"
               >
                 Delete Question
               </button>
@@ -2334,42 +2477,42 @@ const FormBuilderView = ({ id }) => {
 
       {/* Version History Modal */}
       {showVersionsModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-lg w-full p-6 text-left space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-ash-border pb-3">
-              <h3 className="font-bold text-charcoal-dark text-sm flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-lg w-full p-6 text-left space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-[#2A2D35] pb-3">
+              <h3 className="font-bold text-[#F5F3EF] text-sm flex items-center gap-2">
                 <span>📜</span> Version History
               </h3>
-              <button onClick={() => setShowVersionsModal(false)} className="text-secondary hover:text-primary font-bold">✕</button>
+              <button onClick={() => setShowVersionsModal(false)} className="text-[#949089] hover:text-[#F5F3EF] font-bold">✕</button>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
               {loadingVersions ? (
-                <p className="text-xs text-secondary py-6 text-center">Loading versions...</p>
+                <p className="text-xs text-[#949089] py-6 text-center">Loading versions...</p>
               ) : versionsList.length === 0 ? (
-                <p className="text-xs text-secondary py-6 text-center">No version history found.</p>
+                <p className="text-xs text-[#949089] py-6 text-center">No version history found.</p>
               ) : (
                 versionsList.map(v => (
-                  <div key={v.id} className="p-3.5 border border-ash-border rounded-xl bg-silver-container/30 flex items-center justify-between gap-3">
+                  <div key={v.id} className="p-3.5 border border-[#2A2D35] rounded-xl bg-[#16181D] flex items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-charcoal-dark">Version {v.version_number}</span>
+                        <span className="font-bold text-xs text-[#F5F3EF]">Version {v.version_number}</span>
                         {v.is_active && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold bg-mint-emerald/10 text-mint-emerald rounded-full border border-mint-emerald/20">Active</span>
+                          <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">Active</span>
                         )}
                         {!v.published_at && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold bg-warm-amber/10 text-warm-amber rounded-full border border-warm-amber/20">Draft</span>
+                          <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20">Draft</span>
                         )}
                       </div>
-                      <p className="text-[11px] text-secondary mt-1">
+                      <p className="text-[11px] text-[#949089] mt-1">
                         {v.published_at ? `Published: ${new Date(v.published_at).toLocaleString()}` : 'Draft Snapshot (Unpublished)'}
                       </p>
-                      <p className="text-[10px] text-secondary mt-0.5">{v.field_count} Fields</p>
+                      <p className="text-[10px] text-[#949089] mt-0.5">{v.field_count} Fields</p>
                     </div>
 
                     <button
                       onClick={() => handleViewVersionDetail(v.id)}
-                      className="px-3 py-1 text-xs font-semibold bg-silver-container hover:bg-ash-border text-primary rounded-lg transition-colors"
+                      className="px-3 py-1 text-xs font-semibold bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] rounded-lg transition-colors"
                     >
                       View Fields
                     </button>
@@ -2378,23 +2521,23 @@ const FormBuilderView = ({ id }) => {
               )}
 
               {viewingVersionDetail && (
-                <div className="mt-4 p-4 border border-electric-indigo/30 rounded-xl bg-electric-indigo/10 space-y-3">
+                <div className="mt-4 p-4 border border-[#E2B858]/30 rounded-xl bg-[#E2B858]/10 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-xs text-electric-indigo">
+                    <h4 className="font-bold text-xs text-[#E2B858]">
                       Fields Snapshot for Version {viewingVersionDetail.version_number}
                     </h4>
-                    <button onClick={() => setViewingVersionDetail(null)} className="text-[11px] font-bold text-electric-indigo hover:underline">
+                    <button onClick={() => setViewingVersionDetail(null)} className="text-[11px] font-bold text-[#E2B858] hover:underline">
                       Close Snapshot
                     </button>
                   </div>
                   {viewingVersionDetail.fields.length === 0 ? (
-                    <p className="text-xs text-secondary">No fields in this version.</p>
+                    <p className="text-xs text-[#949089]">No fields in this version.</p>
                   ) : (
                     <div className="space-y-1.5">
                       {viewingVersionDetail.fields.map((f, i) => (
-                        <div key={f.id} className="text-xs bg-surface p-2 border border-ash-border rounded flex items-center justify-between">
-                          <span className="font-medium text-charcoal-dark">{i + 1}. {f.label}</span>
-                          <span className="text-[10px] text-secondary uppercase">{f.field_type}</span>
+                        <div key={f.id} className="text-xs bg-[#16181D] p-2 border border-[#2A2D35] rounded flex items-center justify-between">
+                          <span className="font-medium text-[#F5F3EF]">{i + 1}. {f.label}</span>
+                          <span className="text-[10px] text-[#949089] uppercase">{f.field_type}</span>
                         </div>
                       ))}
                     </div>
@@ -2403,8 +2546,8 @@ const FormBuilderView = ({ id }) => {
               )}
             </div>
 
-            <div className="pt-2 border-t border-ash-border flex justify-end">
-              <button onClick={() => setShowVersionsModal(false)} className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl">
+            <div className="pt-2 border-t border-[#2A2D35] flex justify-end">
+              <button onClick={() => setShowVersionsModal(false)} className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] font-semibold text-xs rounded-xl">
                 Close
               </button>
             </div>
@@ -2412,74 +2555,36 @@ const FormBuilderView = ({ id }) => {
         </div>
       )}
 
-      {/* Share Form Modal */}
+      {/* Share / Embed Modal */}
       {showShareModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-md w-full p-6 text-left space-y-4">
-            <div className="flex items-center justify-between border-b border-ash-border pb-3">
-              <h3 className="font-bold text-charcoal-dark text-sm flex items-center gap-2">
-                <span>🔗</span> Share Form Link
-              </h3>
-              <button onClick={() => setShowShareModal(false)} className="text-secondary hover:text-primary font-bold">✕</button>
-            </div>
-
-            {generatingLink ? (
-              <p className="text-xs text-secondary py-4 text-center">Generating share link...</p>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-xs text-secondary leading-relaxed">
-                  Anyone with this public link can fill out and submit responses to this form:
-                </p>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={shareUrl}
-                    className="flex-1 h-9 px-3 border border-ash-border rounded-xl text-xs font-mono bg-silver-container text-primary"
-                  />
-                  <button
-                    onClick={handleCopyShareLink}
-                    className="px-3.5 py-2 bg-charcoal-dark hover:opacity-90 text-on-primary font-bold text-xs rounded-xl transition-all shrink-0 shadow-sm"
-                  >
-                    {copiedLink ? 'Copied! ✓' : 'Copy Link'}
-                  </button>
-                </div>
-
-                <div className="pt-2 flex items-center justify-between">
-                  <a href={shareUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-electric-indigo hover:underline flex items-center gap-1">
-                    <span>↗</span> Open Public Form
-                  </a>
-
-                  <button onClick={() => setShowShareModal(false)} className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl">
-                    Done
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <EmbedModal
+          isOpen={showShareModal}
+          form={form}
+          shareUrl={shareUrl}
+          generating={generatingLink}
+          onClose={() => setShowShareModal(false)}
+        />
       )}
 
       {/* Delete Form Modal Confirmation */}
       {showDeleteFormModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-ash-border max-w-sm w-full p-6 text-left space-y-4">
-            <h3 className="font-bold text-charcoal-dark text-base">Delete this form?</h3>
-            <p className="text-xs text-secondary leading-relaxed">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1D24] rounded-2xl shadow-2xl border border-[#2A2D35] max-w-sm w-full p-6 text-left space-y-4">
+            <h3 className="font-bold text-[#F5F3EF] text-base">Delete this form?</h3>
+            <p className="text-xs text-[#949089] leading-relaxed">
               Are you sure you want to permanently delete this form? This cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowDeleteFormModal(false)}
-                className="px-4 py-2 bg-silver-container hover:bg-ash-border text-primary font-semibold text-xs rounded-xl"
+                className="px-4 py-2 bg-[#20232B] hover:bg-[#2A2D35] text-[#F5F3EF] border border-[#2A2D35] font-semibold text-xs rounded-xl"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDeleteForm}
                 disabled={deletingForm}
-                className="px-4 py-2 bg-error hover:opacity-90 text-white font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-sm disabled:opacity-50"
               >
                 {deletingForm ? 'Deleting...' : 'Delete Form'}
               </button>

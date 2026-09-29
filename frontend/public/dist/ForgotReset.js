@@ -1,0 +1,67 @@
+(function() {
+const ForgotResetView = () => {
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = React.useState('');
+  const [showNewPassword, setShowNewPassword] = React.useState(false);
+  const [newPasswordFocused, setNewPasswordFocused] = React.useState(false);
+  const handleSubmit = e => {
+    e.preventDefault();
+    navigate('/signin');
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "w-full max-w-[440px] bg-white rounded-[12px] border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] p-8 sm:p-10 my-auto overflow-visible shrink-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-center mb-6"
+  }, /*#__PURE__*/React.createElement(Logo, {
+    size: "lg"
+  }), /*#__PURE__*/React.createElement("h1", {
+    className: "text-xl font-bold text-slate-900 mt-4 mb-1"
+  }, "Set New Password"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-500"
+  }, "Create a secure password for your account")), /*#__PURE__*/React.createElement("form", {
+    className: "space-y-4",
+    onSubmit: handleSubmit
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-semibold text-slate-700 mb-1"
+  }, "New Password"), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: showNewPassword ? "text" : "password",
+    name: "newPassword",
+    value: newPassword,
+    onChange: e => setNewPassword(e.target.value),
+    onFocus: () => setNewPasswordFocused(true),
+    onBlur: () => setNewPasswordFocused(false),
+    required: true,
+    className: "w-full h-10 pl-3 pr-10 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setShowNewPassword(!showNewPassword),
+    className: "absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none"
+  }, showNewPassword ? /*#__PURE__*/React.createElement(EyeIcon, null) : /*#__PURE__*/React.createElement(EyeOffIcon, null))), /*#__PURE__*/React.createElement(PasswordChecklist, {
+    password: newPassword,
+    isFocused: newPasswordFocused
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-semibold text-slate-700 mb-1"
+  }, "Confirm New Password"), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: showNewPassword ? "text" : "password",
+    name: "confirmNewPassword",
+    value: confirmNewPassword,
+    onChange: e => setConfirmNewPassword(e.target.value),
+    required: true,
+    className: `w-full h-10 pl-3 pr-10 border rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 transition-all ${confirmNewPassword && newPassword !== confirmNewPassword ? "border-red-500 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-600/20 focus:border-blue-600"}`
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setShowNewPassword(!showNewPassword),
+    className: "absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none"
+  }, showNewPassword ? /*#__PURE__*/React.createElement(EyeIcon, null) : /*#__PURE__*/React.createElement(EyeOffIcon, null))), confirmNewPassword && newPassword !== confirmNewPassword && /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-red-600 font-normal mt-1 block"
+  }, "Passwords must match")), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "w-full h-10 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors mt-2"
+  }, "Reset Password & Log In")));
+};
+  if (typeof ForgotResetView !== 'undefined') window.ForgotResetView = ForgotResetView;
+})();

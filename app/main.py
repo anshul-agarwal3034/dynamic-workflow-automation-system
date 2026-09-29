@@ -11,6 +11,8 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.forms import router as forms_router
 from app.api.routes.public import router as public_router
 from app.api.routes.files import router as files_router
+from app.api.routes.responses import router as responses_router
+from app.api.routes.dashboard import router as dashboard_router
 
 
 @asynccontextmanager
@@ -19,7 +21,26 @@ async def lifespan(app: FastAPI):
     os.makedirs(os.path.abspath("uploads"), exist_ok=True)
     # Base.metadata.create_all() is idempotent — it creates tables if they don't exist
     Base.metadata.create_all(bind=engine)
+
+    # Idempotent schema migration for submissions session tracking and form retention
+    try:
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()"))
+            conn.execute(text("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'completed'"))
+            conn.execute(text("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS response_data JSONB DEFAULT '{}'::jsonb"))
+            conn.execute(text("ALTER TABLE submissions ALTER COLUMN submitted_at DROP NOT NULL"))
+            conn.execute(text("UPDATE submissions SET status = 'completed' WHERE status IS NULL"))
+            conn.execute(text("UPDATE submissions SET started_at = submitted_at WHERE started_at IS NULL"))
+            conn.execute(text("ALTER TABLE forms ADD COLUMN IF NOT EXISTS retention_days INTEGER"))
+            conn.execute(text("ALTER TABLE forms ADD COLUMN IF NOT EXISTS max_submissions INTEGER"))
+            conn.execute(text("ALTER TABLE forms ADD COLUMN IF NOT EXISTS closes_at TIMESTAMP WITH TIME ZONE"))
+            conn.execute(text("ALTER TABLE forms ADD COLUMN IF NOT EXISTS closed_message VARCHAR(500) DEFAULT 'This form is no longer accepting new submissions.'"))
+    except Exception as e:
+        print(f"Schema migration notice: {e}")
+
     yield
+
 
 
 app = FastAPI(
@@ -43,9 +64,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register Authentication, Form Management, Public, and File Routes
+# Register Authentication, Form Management, Public, File, and Response Routes
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(forms_router, prefix="", tags=["forms"])
+app.include_router(responses_router, prefix="", tags=["responses"])
+app.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(public_router, prefix="", tags=["public"])
 app.include_router(files_router, prefix="", tags=["files"])
 

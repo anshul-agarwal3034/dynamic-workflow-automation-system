@@ -9,22 +9,30 @@ function FormPilotXAuthApp() {
     navigate('/signin');
   };
 
+  const isAuthenticated = Boolean(localStorage.getItem('auth_token'));
+
   // Static routes mapping paths to top-level view elements
   const routes = [
-    { path: '/', element: <SigninView /> },
+    { path: '/', element: isAuthenticated ? <HomeView setIsDeleteModalOpen={setIsDeleteModalOpen} /> : <SigninView /> },
     { path: '/signup', element: <SignupView /> },
     { path: '/signup/verify', element: <SignupVerifyView /> },
     { path: '/signin', element: <SigninView /> },
+    { path: '/login', element: <SigninView /> },
     { path: '/signin/forgot-password', element: <ForgotPasswordView /> },
     { path: '/signin/forgot-password/verify', element: <ForgotVerifyView /> },
     { path: '/signin/forgot-password/reset', element: <ForgotResetView /> },
     { path: '/home', element: <HomeView setIsDeleteModalOpen={setIsDeleteModalOpen} /> },
     { path: '/forms', component: FormsListView },
     { path: '/forms/create', component: CreateFormView },
+    { path: '/forms/new', component: CreateFormView },
     { path: '/forms/:id/submissions', component: SubmissionsView },
+    { path: '/forms/:id/analytics', component: AnalyticsDashboard },
+    { path: '/analytics', component: AnalyticsDashboard },
     { path: '/forms/:id', component: FormDetailView },
+
     { path: '/forms/:id/edit', component: FormBuilderView },
     { path: '/submissions', component: SubmissionsView },
+    { path: '/settings', component: SettingsView, element: <SettingsView /> },
     { path: '/public/forms/:slug', component: PublicFormView },
   ];
 

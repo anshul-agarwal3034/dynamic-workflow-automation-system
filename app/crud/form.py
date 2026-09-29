@@ -9,7 +9,15 @@ from app.models.field_option import FieldOption
 from app.models.conditional_rule import ConditionalRule
 
 
-def create_form_with_version(db: Session, title: str, description: str | None, user_id: uuid.UUID) -> Form:
+def create_form_with_version(
+    db: Session,
+    title: str,
+    description: str | None,
+    user_id: uuid.UUID,
+    max_submissions: int | None = None,
+    closes_at: datetime | None = None,
+    closed_message: str | None = None
+) -> Form:
     """
     Creates a Form row and its initial FormVersion (version_number=1, is_active=False, published_at=None)
     in a single atomic transaction.
@@ -18,7 +26,10 @@ def create_form_with_version(db: Session, title: str, description: str | None, u
         title=title.strip(),
         description=description.strip() if description else None,
         status="draft",
-        created_by=user_id
+        created_by=user_id,
+        max_submissions=max_submissions,
+        closes_at=closes_at,
+        closed_message=closed_message if closed_message is not None else "This form is no longer accepting new submissions."
     )
     db.add(db_form)
     db.flush()  # Generates db_form.id before creating FormVersion
@@ -68,14 +79,41 @@ def list_forms_by_user(
     return query.order_by(Form.created_at.desc()).all()
 
 
-def update_form(db: Session, form: Form, title: str | None = None, description: str | None = None) -> Form:
+def update_form(
+    db: Session,
+    form: Form,
+    title: str | None = None,
+    description: str | None = None,
+    max_submissions: int | None = None,
+    closes_at: datetime | None = None,
+    closed_message: str | None = None,
+    fields_set: set[str] | None = None
+) -> Form:
     """
-    Updates form title/description and updates updated_at.
+    Updates form title/description, availability settings, and updates updated_at.
     """
-    if title is not None:
-        form.title = title.strip()
-    if description is not None:
-        form.description = description.strip() if description else None
+    if fields_set is not None:
+        if "title" in fields_set and title is not None:
+            form.title = title.strip()
+        if "description" in fields_set:
+            form.description = description.strip() if description else None
+        if "max_submissions" in fields_set:
+            form.max_submissions = max_submissions
+        if "closes_at" in fields_set:
+            form.closes_at = closes_at
+        if "closed_message" in fields_set:
+            form.closed_message = closed_message.strip() if closed_message else None
+    else:
+        if title is not None:
+            form.title = title.strip()
+        if description is not None:
+            form.description = description.strip() if description else None
+        if max_submissions is not None:
+            form.max_submissions = max_submissions
+        if closes_at is not None:
+            form.closes_at = closes_at
+        if closed_message is not None:
+            form.closed_message = closed_message.strip() if closed_message else None
 
     form.updated_at = datetime.now(timezone.utc)
     db.commit()
